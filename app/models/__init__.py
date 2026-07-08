@@ -1,13 +1,9 @@
-"""SQLAlchemy models.
-
-Models use portable column types (``Uuid``, ``JSON``, ``String``) so the same
-metadata runs on Supabase Postgres in production and on in-memory SQLite in the
-test suite. The full Section 3.1 DDL (with Postgres-native ``INET``/``JSONB``/
-``DATERANGE`` and pgcrypto PHI columns) lives in the Alembic migration.
-"""
+"""SQLAlchemy models."""
 
 from app.models.audit import AuditLog
 from app.models.base import Base, TimestampMixin
 from app.models.case import Case
+from app.models.client import Client, PHIBase
+from app.models.provider import Provider
 
-__all__ = ["Base", "TimestampMixin", "Case", "AuditLog"]
+__all__ = ["Base", "TimestampMixin", "Case", "AuditLog", "Provider", "Client", "PHIBase"]

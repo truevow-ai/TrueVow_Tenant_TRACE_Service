@@ -39,6 +39,10 @@ def _create_engine(url: str):
 engine = _create_engine(settings.effective_database_url)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
+# Separate PHI store engine/session (distinct database instance).
+phi_engine = _create_engine(settings.effective_phi_database_url)
+phi_session_maker = async_sessionmaker(phi_engine, expire_on_commit=False, class_=AsyncSession)
+
 
 def is_postgres() -> bool:
     return engine.dialect.name == "postgresql"

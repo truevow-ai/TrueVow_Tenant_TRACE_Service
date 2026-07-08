@@ -38,6 +38,9 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("TRACE_PHI_DATABASE_URL", "PHI_DATABASE_URL"),
     )
+    # Application-level AES-256-GCM key for PHI columns (base64 or raw). In
+    # production this is sourced from KMS/Secrets Manager, never committed.
+    trace_phi_encryption_key: str = ""
 
     # --- Object storage (S3 + SSE-KMS + BAA) ---
     storage_provider: str = "s3"
@@ -73,6 +76,16 @@ class Settings(BaseSettings):
         service boots (and the test suite runs) without live cloud.
         """
         url = self.trace_database_url
+        if not url:
+            return "sqlite+aiosqlite:///:memory:"
+        if url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
+    @property
+    def effective_phi_database_url(self) -> str:
+        """Runtime PHI-store DB URL (separate instance). SQLite fallback for tests."""
+        url = self.trace_phi_database_url
         if not url:
             return "sqlite+aiosqlite:///:memory:"
         if url.startswith("postgresql://") and "+asyncpg" not in url:

@@ -23,18 +23,23 @@ import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 from app.core.config import settings  # noqa: E402
-from app.core.database import async_session_maker, engine  # noqa: E402
+from app.core.database import async_session_maker, engine, phi_engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
 from app.models.audit import AuditLog  # noqa: E402
 from app.models.case import Case  # noqa: E402
+from app.models.client import PHIBase  # noqa: E402
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def _setup_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    async with phi_engine.begin() as conn:
+        await conn.run_sync(PHIBase.metadata.create_all)
     yield
+    async with phi_engine.begin() as conn:
+        await conn.run_sync(PHIBase.metadata.drop_all)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
