@@ -1,0 +1,11 @@
+# === TRACE optional NLP dependencies (production provider extraction) ===
+# The spec LOCKS spaCy + scispaCy en_core_sci_md for clinical/provider NLP.
+# These are heavy (model download) and are NOT required for the test suite, which
+# exercises the deterministic rule-based fallback. Install in production/staging.
+#
+#   pip install -r requirements-nlp.txt
+#
+spacy>=3.7.0
+scispacy>=0.5.4
+# en_core_sci_md model (install via direct URL after scispacy):
+# pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_md-0.5.4.tar.gz

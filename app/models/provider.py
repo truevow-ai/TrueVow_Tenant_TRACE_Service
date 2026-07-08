@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -25,6 +26,7 @@ class Provider(Base):
     specialty: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confirmation_status: Mapped[str] = mapped_column(String(20), nullable=False, default="UNCONFIRMED")
     retrieval_status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    last_request_sent: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     follow_up_count: Mapped[int] = mapped_column(Integer, default=0)
     # Provider-extraction metadata (spec §5.1).
     extraction_confidence: Mapped[str | None] = mapped_column(String(10), nullable=True)  # HIGH/MEDIUM/LOW

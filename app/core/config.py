@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = ""
     sentry_dsn: str = ""
 
+    # --- Cloud fax (Fax.Plus) ---
+    fax_api_key: str = ""
+    fax_return_number: str = ""
+    fax_webhook_secret: str = ""
+    # Reference to the signed HIPAA authorization on file (set during onboarding).
+    hipaa_auth_reference: str = "PENDING-ONBOARDING"
+
     # --- CORS ---
     cors_allow_origins: str = "*"
 
