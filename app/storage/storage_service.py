@@ -1,10 +1,12 @@
 """Object storage abstraction.
 
-Per ADR-000 the application never talks to a cloud SDK directly — it depends on
-this ``StorageService`` interface. The S3 implementation follows SETTLE's
-``s3_service.py`` pattern, upgraded for PHI: server-side encryption with a
-customer-managed KMS key and time-limited (15 min) pre-signed URLs. Swappable by
-``STORAGE_PROVIDER`` so a future move to GCS/Azure needs only a new implementation.
+ADR-001 §2: the application depends on ``StorageService`` interface.
+The Supabase implementation uses the supabase-py SDK with the service
+role key (never exposed to the browser). All object access goes through
+time-limited (15-min) pre-signed URLs. Documents live in a private bucket
+with no public access policy.
+
+Swappable by ``STORAGE_PROVIDER`` env var.
 """
 
 from __future__ import annotations
@@ -16,79 +18,79 @@ from app.core.logging import get_logger
 
 logger = get_logger("trace.storage")
 
+PRESIGNED_URL_EXPIRY_SECONDS = 900
+
 
 class StorageService(ABC):
     """Encrypted object storage for medical-record bytes (never stored in the DB)."""
 
     @abstractmethod
-    def upload(self, key: str, data: bytes, content_type: str = "application/pdf") -> str:
+    async def upload(self, key: str, data: bytes, content_type: str = "application/pdf") -> str:
         """Store bytes under ``key`` (encrypted at rest). Returns the object key."""
 
     @abstractmethod
-    def presign(self, key: str, expiry_seconds: int | None = None) -> str:
+    async def presign(self, key: str, expiry_seconds: int | None = None) -> str:
         """Return a time-limited URL the browser can fetch directly."""
 
     @abstractmethod
-    def delete(self, key: str) -> None:
+    async def delete(self, key: str) -> None:
         """Delete the object (used for retention/destruction workflows)."""
 
 
-class S3StorageService(StorageService):
-    """AWS S3 with SSE-KMS. boto3 is imported lazily so the dep is optional in dev."""
+class SupabaseStorageService(StorageService):
+    """Supabase Storage client — private bucket, 15-min signed URLs.
+
+    Uses the service role key (SUPABASE_SERVICE_ROLE_KEY) which must
+    never be exposed to the browser. Follows the pattern defined in the
+    Technical Spec §2.1.
+    """
 
     def __init__(self) -> None:
-        self._bucket = settings.trace_s3_bucket
-        self._region = settings.trace_s3_region
-        self._kms_key_id = settings.trace_s3_kms_key_id
-        self._default_expiry = settings.presigned_url_expiry_seconds
-        self._client = None  # lazy
+        self._bucket = settings.storage_bucket
+        self._client = None
+        self._default_expiry = PRESIGNED_URL_EXPIRY_SECONDS
 
     @property
     def configured(self) -> bool:
-        return bool(self._bucket and self._kms_key_id)
+        return bool(settings.storage_supabase_url and settings.storage_supabase_service_role_key)
 
     def _get_client(self):
         if self._client is None:
-            import boto3  # type: ignore[import-untyped]  # lazy import
+            from supabase import create_client
 
-            self._client = boto3.client(
-                "s3",
-                region_name=self._region,
-                aws_access_key_id=settings.trace_aws_access_key_id or None,
-                aws_secret_access_key=settings.trace_aws_secret_access_key or None,
+            self._client = create_client(
+                settings.storage_supabase_url,
+                settings.storage_supabase_service_role_key,
             )
         return self._client
 
-    def upload(self, key: str, data: bytes, content_type: str = "application/pdf") -> str:
+    async def upload(self, key: str, data: bytes, content_type: str = "application/pdf") -> str:
         if not self.configured:
-            raise RuntimeError("S3 storage is not configured (bucket/KMS key missing).")
-        self._get_client().put_object(
-            Bucket=self._bucket,
-            Key=key,
-            Body=data,
-            ContentType=content_type,
-            ServerSideEncryption="aws:kms",
-            SSEKMSKeyId=self._kms_key_id,
+            raise RuntimeError("Supabase Storage is not configured (SUPABASE_URL / key missing).")
+        self._get_client().storage.from_(self._bucket).upload(
+            path=key,
+            file=data,
+            file_options={"content-type": content_type, "upsert": False},
         )
         return key
 
-    def presign(self, key: str, expiry_seconds: int | None = None) -> str:
+    async def presign(self, key: str, expiry_seconds: int | None = None) -> str:
         if not self.configured:
-            raise RuntimeError("S3 storage is not configured (bucket/KMS key missing).")
-        return self._get_client().generate_presigned_url(
-            "get_object",
-            Params={"Bucket": self._bucket, "Key": key},
-            ExpiresIn=expiry_seconds or self._default_expiry,
+            raise RuntimeError("Supabase Storage is not configured (SUPABASE_URL / key missing).")
+        result = self._get_client().storage.from_(self._bucket).create_signed_url(
+            path=key,
+            expires_in=expiry_seconds or self._default_expiry,
         )
+        return result["signedURL"]
 
-    def delete(self, key: str) -> None:
+    async def delete(self, key: str) -> None:
         if not self.configured:
-            raise RuntimeError("S3 storage is not configured (bucket/KMS key missing).")
-        self._get_client().delete_object(Bucket=self._bucket, Key=key)
+            raise RuntimeError("Supabase Storage is not configured (SUPABASE_URL / key missing).")
+        self._get_client().storage.from_(self._bucket).remove([key])
 
 
 def get_storage_service() -> StorageService:
     provider = settings.storage_provider.lower()
-    if provider == "s3":
-        return S3StorageService()
+    if provider in ("supabase",):
+        return SupabaseStorageService()
     raise RuntimeError(f"Unsupported STORAGE_PROVIDER: {settings.storage_provider!r}")

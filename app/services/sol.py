@@ -48,6 +48,7 @@ class SOLResult:
     urgency: str
     reference: str | None
     source: str  # "intake_snapshot" | "sol_table"
+    table_version: str = SOL_TABLE_VERSION
     disclaimer: str = SOL_DISCLAIMER
 
     def to_dict(self) -> dict:
@@ -57,6 +58,7 @@ class SOLResult:
             "sol_urgency": self.urgency,
             "sol_reference": self.reference,
             "sol_source": self.source,
+            "sol_table_version": self.table_version,
             "sol_disclaimer": self.disclaimer,
         }
 

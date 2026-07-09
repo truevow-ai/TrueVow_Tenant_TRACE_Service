@@ -112,7 +112,9 @@ async def initialize_case(
         jurisdiction_state=state,
         sol_deadline=sol.sol_deadline,
         sol_urgency=sol.urgency,
-        case_stage="INITIALIZATION",
+        sol_table_version=sol.table_version,
+        # case_stage defaults to PENDING_SIGNATURE per database constraint.
+        # Only the DocuSeal webhook advances it to INITIALIZATION.
     )
     db.add(case)
     await db.commit()

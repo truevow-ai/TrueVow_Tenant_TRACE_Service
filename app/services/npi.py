@@ -3,13 +3,28 @@
 Queries the public NPI Registry API and normalizes results into a simple shape
 the extraction pipeline consumes. No PHI is sent — only a provider name and
 state. The client is injectable so tests never hit the network.
+
+Rate limiting: exponential backoff on 429 responses, max 4 attempts.
+Confidence taxonomy per ADR-001 §24.2 and ADR-002 §13.5:
+    1 result  → CONFIRMED
+    2-3 results → NEEDS_CLIENT_CONFIRMATION
+    4+ results → NEEDS_STAFF_REVIEW
+    0 results → DO_NOT_REQUEST
 """
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 
 NPI_API_URL = "https://npiregistry.cms.hhs.gov/api/"
+MAX_RETRIES = 4
+
+
+class NpiRegistryUnavailableError(Exception):
+    def __init__(self, provider_name: str) -> None:
+        super().__init__(f"NPI Registry unavailable after {MAX_RETRIES} attempts for: {provider_name}")
 
 
 def _normalize(result: dict) -> dict:
@@ -36,13 +51,27 @@ def _normalize(result: dict) -> dict:
     }
 
 
+def _assign_confidence(result_count: int) -> str:
+    if result_count == 1:
+        return "CONFIRMED"
+    if result_count <= 3:
+        return "NEEDS_CLIENT_CONFIRMATION"
+    if result_count >= 4:
+        return "NEEDS_STAFF_REVIEW"
+    return "DO_NOT_REQUEST"
+
+
 class NPIClient:
     def __init__(self, base_url: str = NPI_API_URL, timeout: float = 10.0) -> None:
         self._base_url = base_url
         self._timeout = timeout
 
     async def search(self, name: str, state: str | None = None, limit: int = 5) -> list[dict]:
-        """Return normalized provider matches for a name (optionally state-filtered)."""
+        """Return normalized provider matches with confidence labels.
+
+        Exponential backoff on 429 rate limits. Raises NpiRegistryUnavailableError
+        if all retry attempts are exhausted.
+        """
         params: dict[str, str | int] = {"version": "2.1", "limit": limit}
         tokens = name.split()
         if len(tokens) >= 2:
@@ -53,9 +82,28 @@ class NPIClient:
         if state:
             params["state"] = state
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.get(self._base_url, params=params)
-            resp.raise_for_status()
-            payload = resp.json()
+        for attempt in range(MAX_RETRIES):
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    resp = await client.get(self._base_url, params=params)
 
-        return [_normalize(r) for r in payload.get("results", [])]
+                if resp.status_code == 429:
+                    wait_seconds = 2 ** attempt
+                    await asyncio.sleep(wait_seconds)
+                    continue
+
+                resp.raise_for_status()
+                payload = resp.json()
+                break
+            except httpx.TimeoutException:
+                if attempt == MAX_RETRIES - 1:
+                    raise NpiRegistryUnavailableError(provider_name=name) from None
+                await asyncio.sleep(2 ** attempt)
+        else:
+            raise NpiRegistryUnavailableError(provider_name=name)
+
+        results = [_normalize(r) for r in payload.get("results", [])]
+        confidence = _assign_confidence(len(results))
+        for r in results:
+            r["confidence"] = confidence
+        return results

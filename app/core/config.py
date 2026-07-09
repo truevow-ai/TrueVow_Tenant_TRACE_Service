@@ -42,13 +42,11 @@ class Settings(BaseSettings):
     # production this is sourced from KMS/Secrets Manager, never committed.
     trace_phi_encryption_key: str = ""
 
-    # --- Object storage (S3 + SSE-KMS + BAA) ---
-    storage_provider: str = "s3"
-    trace_s3_bucket: str = ""
-    trace_s3_region: str = "us-west-2"
-    trace_s3_kms_key_id: str = ""
-    trace_aws_access_key_id: str = ""
-    trace_aws_secret_access_key: str = ""
+    # --- Object storage (Supabase Storage) ---
+    storage_provider: str = "supabase"
+    storage_supabase_url: str = ""
+    storage_supabase_service_role_key: str = ""
+    storage_bucket: str = "trace-medical-records"
     presigned_url_expiry_seconds: int = 900  # 15 minutes (HIPAA data-flow requirement)
 
     # --- Observability ---
@@ -61,6 +59,12 @@ class Settings(BaseSettings):
     fax_webhook_secret: str = ""
     # Reference to the signed HIPAA authorization on file (set during onboarding).
     hipaa_auth_reference: str = "PENDING-ONBOARDING"
+
+    # --- DocuSeal (self-hosted e-signature) ---
+    docuseal_api_url: str = ""
+    docuseal_api_token: str = ""
+    docuseal_webhook_secret: str = ""
+    docuseal_signing_link_expiry_days: int = 7
 
     # --- CORS ---
     cors_allow_origins: str = "*"

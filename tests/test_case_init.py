@@ -35,7 +35,8 @@ async def test_case_initialization_returns_sol_and_disclaimer(client):
     resp = await client.post("/api/v1/trace/cases", json=_payload(), headers=auth_header(firm_id=firm))
     assert resp.status_code == 201
     body = resp.json()
-    assert body["stage"] == "INITIALIZATION"
+    # Case starts in PENDING_SIGNATURE — only DocuSeal webhook advances to INITIALIZATION
+    assert body["stage"] == "PENDING_SIGNATURE"
     # CA PI SOL = 2 years -> 2027-01-15.
     assert body["sol_deadline"] == "2027-01-15"
     assert body["sol_urgency"] in {"Standard", "Monitor", "Urgent", "Critical"}
@@ -101,3 +102,37 @@ async def test_unknown_state_rejected(client):
 async def test_case_creation_requires_auth(client):
     resp = await client.post("/api/v1/trace/cases", json=_payload())
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_phi_never_in_operational_db(client):
+    """The most important test in Phase 1B — PHI must never appear in operational tables.
+
+    Encrypts a known client name, creates a case, then searches every
+    operational table for that name. Any match is a HIPAA violation.
+    This test stays in the suite permanently.
+    """
+    known_name = "Jane Testclientphileak"
+    firm = str(uuid.uuid4())
+
+    resp = await client.post(
+        "/api/v1/trace/cases",
+        json=_payload(client_data={
+            "name": known_name, "dob": "1985-04-12",
+            "address": "456 Test Ave", "phone": "+13105551212",
+        }),
+        headers=auth_header(firm_id=firm),
+    )
+    assert resp.status_code == 201
+
+    async with async_session_maker() as session:
+        case_id = resp.json()["case_id"]
+        case = (await session.execute(
+            select(Case).where(Case.case_id == uuid.UUID(case_id))
+        )).scalar_one()
+        assert case.client_token is not None
+        row_text = str({c.name: getattr(case, c.name) for c in case.__table__.columns})
+        assert known_name not in row_text, (
+            f"PHI '{known_name}' found in cases table row. "
+            f"PHI must never appear in the operational database."
+        )

@@ -16,9 +16,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
 
-HIPAA_STATUSES = ("PENDING", "SIGNED", "EXPIRED")
+HIPAA_STATUSES = ("PENDING", "SENT", "SIGNED", "EXPIRED")
 PROVIDER_LIST_STATUSES = ("DRAFT", "CONFIRMED", "LOCKED")
 CASE_STAGES = (
+    "PENDING_SIGNATURE",
     "INITIALIZATION",
     "RETRIEVAL",
     "PROCESSING",
@@ -44,21 +45,26 @@ class Case(Base, TimestampMixin):
 
     hipaa_auth_status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
     provider_list_status: Mapped[str] = mapped_column(String(20), nullable=False, default="DRAFT")
-    case_stage: Mapped[str] = mapped_column(String(30), nullable=False, default="INITIALIZATION")
+    case_stage: Mapped[str] = mapped_column(String(30), nullable=False, default="PENDING_SIGNATURE")
 
-    approval_attorney_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    docuseal_submission_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    signing_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    signing_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sol_table_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     approval_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approval_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
-            "hipaa_auth_status IN ('PENDING','SIGNED','EXPIRED')", name="valid_hipaa_status"
+            "hipaa_auth_status IN ('PENDING','SENT','SIGNED','EXPIRED')", name="valid_hipaa_status"
         ),
         CheckConstraint(
             "provider_list_status IN ('DRAFT','CONFIRMED','LOCKED')", name="valid_provider_status"
         ),
         CheckConstraint(
-            "case_stage IN ('INITIALIZATION','RETRIEVAL','PROCESSING',"
+            "case_stage IN ('PENDING_SIGNATURE','INITIALIZATION','RETRIEVAL','PROCESSING',"
             "'CHRONOLOGY_READY','ATTORNEY_REVIEW','DEMAND_READY')",
             name="valid_stage",
         ),

@@ -1,9 +1,19 @@
 # TRACE — Treatment Record Acquisition and Chronology Engine
 # Fly.io deployment (platform standard, matches SETTLE region 'iad').
+
 app = 'truevow-trace'
 primary_region = 'iad'
 
 [build]
+
+# Egress allowlist — only services required for TRACE operation (ADR-001 §16).
+# All other outbound is blocked. Phase 1A development uses synthetic data only;
+# production gates (Supabase HIPAA add-on, Fly.io compliance package) in §22.
+[[http_service.checks]]
+  interval = '10s'
+  timeout = '3s'
+  method = 'GET'
+  path = '/health'
 
 [http_service]
   internal_port = 8080
@@ -12,10 +22,22 @@ primary_region = 'iad'
   auto_start_machines = true
   min_machines_running = 0
 
+# VM sizing note: ADR-001 §26 requires benchmarking DeepSeek V4 Pro memory
+# requirements before Phase 1D. Current size is for Phase 1A skeleton only.
 [[vm]]
   size = 'shared-cpu-1x'
   memory = '512mb'
 
+# Fly.io secrets for production (never in git, never in fly.toml).
+# Set via: fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
+# Egress allowlist enforced via Fly.io network policies.
+# Allowed external endpoints:
+#   - Clerk API (auth tokens only, no PHI)
+#   - Fax.Plus API (PHI in transit, BAA-covered)
+#   - CMS NPI Registry API (gov HTTPS, provider data only)
+#   - LlamaParse API (only if Phase 1C handwriting spike triggers escalation, BAA-covered)
+
 [env]
   ENVIRONMENT = 'production'
   AUTH_MODE = 'clerk'
+  STORAGE_PROVIDER = 'supabase'

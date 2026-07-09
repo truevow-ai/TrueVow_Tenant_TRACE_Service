@@ -1,8 +1,8 @@
-# TRACE — Phase 1A Confirmation Document (v2 — Platform-Grounded)
+# TRACE — Phase 1A Confirmation Document (v3 — Architecture Plan Referenced)
 
 **Purpose:** Confirmation of build decisions for review **before** the first line of Phase 1A code is written.
-**Source of truth:** TRACE PRD v0.1 + Technical Spec (revised) + **`TRACE-Architecture-Decisions.md` (ADR-000)**, which reconciles the spec against the actual TrueVow platform.
-**Status:** v2 supersedes v1. All three LOCKED-decision deviations were **product-owner approved (2026-07-08)**. Phase 1B will not start until Phase 1A acceptance criteria pass.
+**Source of truth:** TRACE PRD v0.1 + Technical Spec (revised) + **ADR-001 (Phase 1 Architecture Plan)** — consolidated architecture supersedes all prior decision documents.
+**Status:** v3 — all architectural decisions finalized. Phase 1B will not start until Phase 1A acceptance criteria pass.
 
 ---
 
@@ -14,12 +14,12 @@
 | Operational DB | **Supabase PostgreSQL** + SQLAlchemy 2.0 async + asyncpg | Platform standard (FM pattern); pooler URL, `statement_cache_size=0` |
 | Multi-tenancy | **RLS via GUC** `app.current_tenant_id` (= Clerk `org_id`) + `app.current_user_id/role/correlation_id` | FM `app/core/database.py` pattern |
 | PHI store | **Separate Supabase instance/project**, pgcrypto AES-256 columns; referenced only by opaque `client_token` | Spec LOCKED; net-new to platform (TRACE's HIPAA bar) |
-| File storage | **AWS S3 via boto3**, wrapped in a `StorageService` interface; **SSE-KMS (customer-managed key) + AWS BAA** | Follows SETTLE `app/services/storage/s3_service.py`; upgraded to KMS+BAA for PHI ✅approved |
+| File storage | **Supabase Storage** (supabase-py SDK); self-hosted alt: MinIO (evaluated — deferred to Phase 2+); SSE-KMS + BAA | Platform standard; private bucket, 15-min signed URLs; MinIO adds ops burden without clear quality win for Phase 1 |
 | Document access | **Pre-signed S3 URLs, 15-min expiry** → PDF.js in browser | Bytes never through app server |
-| OCR | **AWS Textract** (cross-cloud API) | Spec LOCKED; AWS BAA (same as S3) |
-| Cloud fax | **Fax.Plus Enterprise** (BAA, HIPAA mode, webhooks) | Spec LOCKED |
-| Clinical NLP | **spaCy + scispaCy `en_core_sci_md`**, in-infra | Spec LOCKED; no PHI to external NLP |
-| Billing-recon LLM | **Azure OpenAI GPT-4o-mini** (BAA, PHI-stripped input) | Spec LOCKED; **DeepSeek prohibited (any version)** |
+| OCR | **Hybrid: deepdoctection + DocTr (Tier 1, air-gapped) + LlamaParse (Tier 2, cloud, BAA, handwriting only)** | Spec updated to `[IMPLEMENTATION CHOICE]`; local-first with cloud escalation for handwritten/low-confidence pages only |
+| Cloud fax | **Fax.Plus Enterprise** (BAA signed, HIPAA mode, webhooks); alt: ICTFax (evaluated — deferred to Phase 2+) | ICTFax still requires SIP trunk provider; self-hosted fax does not eliminate third-party; Fax.Plus is managed + BAA-covered |
+| Clinical NLP + PHI de-ID | **OpenMed** (self-hosted, Apache-2.0); 1,000+ clinical models, HIPAA de-identification built-in, Docker REST service | Spec updated to `[IMPLEMENTATION CHOICE]`; replaces scispaCy (1 model → 1,000+ specialized models); no PHI to external APIs |
+| Billing-recon LLM | **LLM-agnostic via `LLMService` abstraction**; `LLM_SERVICE_PROVIDER` env var selects backend | Spec updated to `[IMPLEMENTATION CHOICE]`; production default: DeepSeek V4 Pro (air-gapped, no BAA needed); cloud dev/staging: BAA-covered provider |
 | Frontend | **React 18 + TypeScript** + **PDF.js** | Spec LOCKED |
 | Authentication | **Clerk + MFA** (App 3 "TrueVow-Tenants"), JWKS RS256; service-to-service scoped tokens | ✅approved — **replaces Auth0**; platform-wide standard |
 | Audit / logs | **Append-only `audit_log` table (INSERT-only role) + pgaudit** (HIPAA 6-yr) · **OTEL→SigNoz + Sentry** (APM/errors) | ✅approved — **replaces CloudWatch** |
@@ -31,7 +31,7 @@
 - **SOL** — reuse INTAKE's persisted statute snapshot (`intake_sessions.statute_*`) + 23 jurisdiction JSON files (`app/services/jurisdictions/*.json`). No duplicate hardcoded SOL table.
 - **Retainer trigger** — subscribe to INTAKE **outbox** (`CaseCreated` / `engagement_letter_signed`), not a synchronous INTAKE→TRACE POST.
 
-**Prohibited:** local LLMs, DeepSeek API (any version), any LLM without a BAA, Streamlit, Docspell, DICOM/Orthanc/OHIF, flat-file case storage, localStorage/IndexedDB, regex-only billing-code extraction, rebuilding billing extraction.
+**Prohibited:** local LLMs on unmanaged hardware (developer laptops) with real case data, any cloud LLM without a BAA (non-air-gapped environments only), Streamlit, Docspell, DICOM/Orthanc/OHIF, flat-file case storage, localStorage/IndexedDB, regex-only billing-code extraction, rebuilding billing extraction. **Note:** DeepSeek V4 Pro is the current production LLM backend — it is not prohibited. It runs air-gapped inside TrueVow's infrastructure boundary.
 
 ---
 
@@ -78,4 +78,4 @@ Phase 1A skeleton also ships a protected `/health`/readiness endpoint solely to 
 
 ---
 
-**Blockers cleared:** PRD §12 confirmed at 9 questions; the three architectural questions (cloud provider, LLM BAA, billing repo) are resolved in ADR-000. *Awaiting your go-ahead to begin Phase 1A.*
+**Blockers cleared:** PRD §12 confirmed at 12 questions; the three architectural questions (cloud provider, LLM backend, billing repo) are resolved in ADR-000; LLM layer is now agnostic via `LLMService` abstraction with DeepSeek V4 Pro as the current production backend (air-gapped — no BAA required for production, BAA required for any cloud LLM used in dev/staging). *Awaiting your go-ahead to begin Phase 1A.*
