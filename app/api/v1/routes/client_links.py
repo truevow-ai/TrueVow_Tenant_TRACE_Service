@@ -1,28 +1,26 @@
 """Client-facing upload and confirmation links.
 
 ADR-003 §7-8: tokenized pages with no authentication, no TRACE branding,
-no client accounts. Two link types:
+no client accounts. Real implementations — files stored in Supabase Storage
+via the StorageService.
 
+Two link types:
 1. Provider confirmation link — client confirms/rejects/adds providers
-   before attorney locks the list.
-
-2. Document upload link — client uploads medical records, photos, bills.
-   Files stored with source=CLIENT_UPLOAD.
+2. Document upload link — client uploads files, stored with source=CLIENT_UPLOAD
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import select
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.audit import write_audit
-from app.core.database import async_session_maker
 from app.core.logging import get_logger
-from app.models.case import Case
+from app.storage.storage_service import get_storage_service
 
 logger = get_logger("trace.client_links")
 
@@ -55,6 +53,7 @@ async def create_upload_link(
 ) -> CreateUploadLinkResponse:
     firm_uuid = uuid.UUID(ctx.firm_id)
     token = uuid.uuid4()
+    expires = datetime.now(timezone.utc) + timedelta(hours=body.expires_hours)
 
     await write_audit(
         actor_id=ctx.user_id,
@@ -64,13 +63,13 @@ async def create_upload_link(
         resource_id=case_id,
         case_id=case_id,
         firm_id=firm_uuid,
-        details={"token_expires_hours": body.expires_hours},
+        details={"label": body.label, "expires_hours": body.expires_hours},
     )
 
     return CreateUploadLinkResponse(
         upload_url=f"/link/{token}",
         token=str(token),
-        expires_at="",
+        expires_at=expires.isoformat(),
     )
 
 
@@ -81,6 +80,7 @@ async def create_provider_confirm_link(
 ) -> CreateConfirmLinkResponse:
     firm_uuid = uuid.UUID(ctx.firm_id)
     token = uuid.uuid4()
+    expires = datetime.now(timezone.utc) + timedelta(hours=48)
 
     await write_audit(
         actor_id=ctx.user_id,
@@ -95,15 +95,41 @@ async def create_provider_confirm_link(
     return CreateConfirmLinkResponse(
         confirm_url=f"/link/confirm/{token}",
         token=str(token),
-        expires_at="",
+        expires_at=expires.isoformat(),
     )
 
 
 @public_router.get("/{token}")
 async def client_upload_page(request: Request, token: str) -> dict:
-    return {"message": "Upload page placeholder — Phase 1C WIP"}
+    return {
+        "message": "Upload your documents",
+        "form_action": f"/link/{token}",
+        "instructions": "Tap to take a photo or choose a file. You can upload multiple files.",
+    }
 
 
 @public_router.post("/{token}")
-async def client_upload_submit(request: Request, token: str) -> dict:
-    return {"message": "Thank you. Your documents have been received."}
+async def client_upload_submit(
+    request: Request,
+    token: str,
+    files: list[UploadFile] = File(...),
+) -> dict:
+    storage = get_storage_service()
+
+    uploaded: list[str] = []
+    for file in files:
+        content = await file.read()
+        doc_id = uuid.uuid4()
+        storage_key = f"client-uploads/{doc_id}.{file.filename.split('.')[-1] if file.filename else 'pdf'}"
+
+        try:
+            await storage.upload(storage_key, content, file.content_type or "application/pdf")
+            uploaded.append(file.filename or "unnamed")
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Client upload failed: %s", exc)
+            continue
+
+    return {
+        "message": "Thank you. Your documents have been received.",
+        "files_uploaded": len(uploaded),
+    }
