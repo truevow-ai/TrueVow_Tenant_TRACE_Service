@@ -65,7 +65,7 @@ def auth_header(firm_id: str | None = None, user_id: str | None = None) -> dict:
     return {"Authorization": f"Bearer {make_token(firm_id=firm_id, user_id=user_id)}"}
 
 
-async def seed_case(firm_id: str) -> str:
+async def seed_case(firm_id: str, *, signing_complete: bool = False) -> str:
     async with async_session_maker() as session:
         case = Case(
             client_token=uuid.uuid4(),
@@ -74,6 +74,10 @@ async def seed_case(firm_id: str) -> str:
             incident_date=datetime.date(2026, 1, 15),
             jurisdiction_state="CA",
         )
+        if signing_complete:
+            case.case_stage = "INITIALIZATION"
+            case.hipaa_auth_status = "SIGNED"
+            case.signing_completed_at = datetime.datetime(2026, 1, 15, tzinfo=datetime.timezone.utc)
         session.add(case)
         await session.commit()
         return str(case.case_id)

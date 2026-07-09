@@ -22,6 +22,9 @@ async def _seed_case_with_provider(firm: str, *, confirmed: bool = False) -> tup
             intake_record_id=uuid.uuid4(),
             incident_date=datetime.date(2025, 1, 15),
             jurisdiction_state="CA",
+            case_stage="INITIALIZATION",
+            hipaa_auth_status="SIGNED",
+            signing_completed_at=datetime.datetime(2025, 1, 15, tzinfo=datetime.timezone.utc),
         )
         session.add(case)
         await session.flush()

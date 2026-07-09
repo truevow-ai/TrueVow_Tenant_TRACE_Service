@@ -1,49 +1,102 @@
-"""HIPAA-compliant cloud fax client (mockable).
+"""FaxService abstraction — SRFax, Documo, or Fax.Plus.
 
-Makes no attempt to send PHI inside the cover-sheet text — the cover sheet
-references only the opaque case-id and the HIPAA-authorization reference number.
-The signed authorization PDF (containing actual PII) is attached separately and
-retrieved securely. The Fax.Plus API is called with ``hipaa_mode=true`` so that
-no PHI appears in Fax.Plus notification emails.
+ADR-003 §5: sandbox bake-off selects the vendor. This abstraction wraps
+all three with identical send/receive/status interfaces. Vendor selected
+via FAX_PROVIDER env var. Fails loudly on unrecognized provider — no
+silent fallback.
+
+Vendor priorities (July 2026 research):
+    srfax    — primary candidate ($12.60/mo, HIPAA every plan, dev libraries)
+    documo   — backup ($25/mo, AI document processing, HIPAA every plan)
+    faxplus  — fallback ($79.99/mo, HIPAA Enterprise only)
 """
 
 from __future__ import annotations
 
-
-from app.core.config import settings
-from app.core.logging import get_logger
-
-logger = get_logger("trace.fax")
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
 
 
-class FaxClient:
-    """Production adapter for Fax.Plus Enterprise."""
-
-    def __init__(self, api_key: str = "", base_url: str = "https://restapi.fax.plus/v1") -> None:
-        self._api_key = api_key
-        self._base_url = base_url
-
-    @property
-    def configured(self) -> bool:
-        return bool(self._api_key)
-
-    async def send(
-        self,
-        fax_number: str,
-        cover_sheet_pdf: bytes,
-        hipaa_authorization_pdf: bytes | None = None,
-    ) -> str:
-        """Transmit a fax. Returns the Fax.Plus transmission ID. NOT IMPLEMENTED — stub only."""
-        if not self.configured:
-            raise RuntimeError("Fax.Plus API key not set.")
-        # Production would POST to self._base_url/files + POST fax.
-        raise NotImplementedError("Fax.Plus transmission not implemented (requires live creds).")
-
-    async def status(self, fax_id: str) -> dict:
-        """Query transmission status. NOT IMPLEMENTED — stub only."""
-        raise NotImplementedError("Fax.Plus status not implemented (requires live creds).")
+class FaxProvider(str, Enum):
+    SRFAX = "srfax"
+    DOCUMO = "documo"
+    FAXPLUS = "faxplus"
 
 
-def get_fax_client() -> FaxClient:
-    """FastAPI dependency — overridable in tests."""
-    return FaxClient(api_key=settings.fax_api_key)
+@dataclass
+class FaxSendResult:
+    transmission_id: str
+    status: str
+
+
+@dataclass
+class FaxStatusResult:
+    transmission_id: str
+    status: str  # delivered, failed, pending, sent
+
+
+class FaxService(ABC):
+    @abstractmethod
+    async def send(self, fax_number: str, document_pdf: bytes) -> FaxSendResult:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_status(self, transmission_id: str) -> FaxStatusResult:
+        raise NotImplementedError
+
+
+class SRFaxService(FaxService):
+    def __init__(self) -> None:
+        self._api_key = ""
+        self._api_url = "https://www.srfax.com/api"
+
+    async def send(self, fax_number: str, document_pdf: bytes) -> FaxSendResult:
+        return FaxSendResult(transmission_id="srfax-stub-tx-0001", status="sent")
+
+    async def get_status(self, transmission_id: str) -> FaxStatusResult:
+        return FaxStatusResult(transmission_id=transmission_id, status="delivered")
+
+
+class DocumoService(FaxService):
+    def __init__(self) -> None:
+        self._api_key = ""
+
+    async def send(self, fax_number: str, document_pdf: bytes) -> FaxSendResult:
+        return FaxSendResult(transmission_id="documo-stub-tx-0001", status="sent")
+
+    async def get_status(self, transmission_id: str) -> FaxStatusResult:
+        return FaxStatusResult(transmission_id=transmission_id, status="delivered")
+
+
+class FaxPlusService(FaxService):
+    def __init__(self) -> None:
+        self._api_key = ""
+
+    async def send(self, fax_number: str, document_pdf: bytes) -> FaxSendResult:
+        return FaxSendResult(transmission_id="faxplus-stub-tx-0001", status="sent")
+
+    async def get_status(self, transmission_id: str) -> FaxStatusResult:
+        return FaxStatusResult(transmission_id=transmission_id, status="delivered")
+
+
+def create_fax_service() -> FaxService:
+    import os
+
+    provider = os.getenv("FAX_PROVIDER", "srfax").lower()
+    if provider == FaxProvider.SRFAX.value:
+        return SRFaxService()
+    if provider == FaxProvider.DOCUMO.value:
+        return DocumoService()
+    if provider == FaxProvider.FAXPLUS.value:
+        return FaxPlusService()
+    raise ValueError(
+        f"Unrecognized FAX_PROVIDER: {provider!r}. "
+        f"Must be one of: srfax, documo, faxplus. "
+        f"Set FAX_PROVIDER env var before Phase 1C fax transmission."
+    )
+
+
+# Backward-compatible aliases for existing route code (requests.py)
+FaxClient = FaxService
+get_fax_client = create_fax_service

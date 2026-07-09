@@ -63,9 +63,9 @@ async def test_extraction_confidence_high_medium_low():
     async with async_session_maker() as session:
         rows = (await session.execute(select(Provider).where(Provider.case_id == case_id))).scalars().all()
     by_conf = {r.source_reference: r.extraction_confidence for r in rows}
-    assert by_conf["intake:Cedars Sinai"] == "HIGH"
-    assert by_conf["intake:Dr Smith"] == "MEDIUM"
-    assert by_conf["intake:Unknown Clinic"] == "LOW"
+    assert by_conf["openmed:1.7.0:Cedars Sinai"] == "CONFIRMED"
+    assert by_conf["openmed:1.7.0:Dr Smith"] == "NEEDS_CLIENT_CONFIRMATION"
+    assert by_conf["openmed:1.7.0:Unknown Clinic"] == "DO_NOT_REQUEST"
     # All created providers start UNCONFIRMED (attorney must confirm — Checkpoint 1).
     assert all(r.confirmation_status == "UNCONFIRMED" for r in rows)
 
@@ -88,5 +88,5 @@ async def test_npi_failure_falls_back_to_low_confidence():
     assert count == 1
     async with async_session_maker() as session:
         row = (await session.execute(select(Provider).where(Provider.case_id == case_id))).scalar_one()
-    assert row.extraction_confidence == "LOW"
+    assert row.extraction_confidence == "DO_NOT_REQUEST"
     assert row.provider_name == "Some Provider"

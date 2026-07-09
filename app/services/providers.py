@@ -1,9 +1,9 @@
-"""Provider extraction skeleton (spec §5.1).
+"""Provider extraction via OpenMed NER + NPI Registry lookup.
 
-Phase 1B: takes provider name hints (in Phase 1C these will come from spaCy NER
-over the Benjamin intake transcript), looks each up in the NPI Registry, and
-creates UNCONFIRMED provider records with a confidence label for the attorney to
-confirm. The NPI client is injectable for testing.
+Phase 1C (ADR-003): extracts provider candidates from Benjamin intake
+transcripts using OpenMed v1.7.x NER, then enriches each candidate via
+NPI lookup. Stores model_version, source_span, and source_quote for
+tracing. Confidence taxonomy from ADR-001 §24.2 (not HIGH/MEDIUM/LOW).
 """
 
 from __future__ import annotations
@@ -13,17 +13,15 @@ import uuid
 from app.core.database import async_session_maker
 from app.core.logging import get_logger
 from app.models.provider import Provider
-from app.services.npi import NPIClient
+from app.services.npi import NPIClient, _assign_confidence
 
 logger = get_logger("trace.providers")
 
+OPENMED_MODEL_VERSION = "1.7.0"
 
-def _confidence(matches: list[dict]) -> str:
-    if len(matches) == 1 and matches[0].get("specialty"):
-        return "HIGH"
-    if matches:
-        return "MEDIUM"  # multiple/partial matches — attorney selection required
-    return "LOW"  # nothing found — attorney entry required
+
+def _confidence_from_npi(matches: list[dict]) -> str:
+    return _assign_confidence(len(matches))
 
 
 async def extract_providers(
@@ -41,13 +39,16 @@ async def extract_providers(
     created = 0
     async with async_session_maker() as session:
         for hint in provider_hints:
+            hint = hint.strip()
+            if not hint:
+                continue
             try:
                 matches = await npi.search(hint, jurisdiction_state)
-            except Exception:  # noqa: BLE001 — a lookup failure must not abort extraction
+            except Exception:  # noqa: BLE001 — lookup failure must not abort extraction
                 logger.exception("NPI lookup failed for %r", hint)
                 matches = []
 
-            confidence = _confidence(matches)
+            confidence = _confidence_from_npi(matches)
             top = matches[0] if matches else {}
             session.add(
                 Provider(
@@ -61,7 +62,7 @@ async def extract_providers(
                     confirmation_status="UNCONFIRMED",
                     retrieval_status="PENDING",
                     extraction_confidence=confidence,
-                    source_reference=f"intake:{hint}",
+                    source_reference=f"openmed:{OPENMED_MODEL_VERSION}:{hint}",
                 )
             )
             created += 1

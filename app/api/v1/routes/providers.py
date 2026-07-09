@@ -164,6 +164,12 @@ async def confirm_provider_list(
     c = await _check_case_owner(case_id, firm, db)
     await _check_not_confirmed(c)
 
+    if c.case_stage == "PENDING_SIGNATURE":
+        raise HTTPException(
+            status_code=403,
+            detail="Provider list cannot be confirmed before the client has signed the retainer and HIPAA authorization.",
+        )
+
     confirmed_count = (
         await db.execute(
             select(func.count())

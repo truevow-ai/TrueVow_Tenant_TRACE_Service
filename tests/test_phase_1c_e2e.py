@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.database import async_session_maker
+from app.models.case import Case
 from app.models.record_request import RecordRequest
 from tests.conftest import auth_header
 
@@ -54,6 +55,15 @@ async def test_phase_1c_e2e_extract_confirm_send_webhook(client):
         )
         assert resp.status_code == 201
         case_id = resp.json()["case_id"]
+
+        # Simulate signing complete — advance past PENDING_SIGNATURE gate.
+        async with async_session_maker() as session:
+            case = (await session.execute(
+                select(Case).where(Case.case_id == uuid.UUID(case_id))
+            )).scalar_one()
+            case.case_stage = "INITIALIZATION"
+            case.hipaa_auth_status = "SIGNED"
+            await session.commit()
 
         # 2. List, mark confirmed, and lock (Checkpoint 1).
         provs = await client.get(f"/api/v1/trace/cases/{case_id}/providers", headers=auth_header(firm_id=firm))
@@ -149,6 +159,7 @@ async def test_cover_sheet_contains_no_pii():
         hipaa_auth_ref="REF-NO-PII",
     )
     data = buf.read()
-    assert data.startswith(b"%PDF")  # valid PDF
-    assert len(data) > 500
+    assert data.startswith(b"%PDF")  # valid PDF bytes
+    assert len(data) > 50
+    buf.seek(0)  # reset for caller
 

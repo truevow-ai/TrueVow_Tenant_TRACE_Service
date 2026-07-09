@@ -52,13 +52,13 @@ def _normalize(result: dict) -> dict:
 
 
 def _assign_confidence(result_count: int) -> str:
+    if result_count == 0:
+        return "DO_NOT_REQUEST"
     if result_count == 1:
         return "CONFIRMED"
     if result_count <= 3:
         return "NEEDS_CLIENT_CONFIRMATION"
-    if result_count >= 4:
-        return "NEEDS_STAFF_REVIEW"
-    return "DO_NOT_REQUEST"
+    return "NEEDS_STAFF_REVIEW"
 
 
 class NPIClient:
