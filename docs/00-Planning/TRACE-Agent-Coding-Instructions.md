@@ -1,9 +1,10 @@
 # TRACE — Coding Agent Operating Instructions
 ## Read This Before Writing a Single Line of Code
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** July 2026  
 **Classification:** Engineering — Required Reading  
-**Prerequisite:** TRACE PRD v0.5, TRACE Technical Implementation Spec v1.0, ADR-001
+**Prerequisite:** TRACE PRD v0.5, TRACE Technical Implementation Spec v1.1, ADR-001, ADR-002, ADR-003  
+**Changes in v1.1:** NPI authorization rule (§4.5), AuthContext abstraction via @truevow/auth-client (§3.8), environment discipline (§3.9), OCR routing fields (§3.10)
 
 ---
 
@@ -324,6 +325,80 @@ async def run_ocr_job(document_id: UUID) -> None:
     ...
 ```
 
+### 3.8 AuthContext — Consume @truevow/auth-client, Never Import Clerk Directly
+
+Clerk is the platform-wide authentication standard across all TrueVow products. TRACE consumes the shared `@truevow/auth-client` library (the `ClerkWrapper`) — it never imports `@clerk/nextjs` or `@clerk/backend` directly.
+
+Every TRACE service receives authentication context through a normalized `AuthContext` object populated from the ClerkWrapper. Never read Clerk JWT fields directly in a service or job. The only place JWT fields are read is `get_auth_context()`, which wraps the ClerkWrapper.
+
+**Why `AuthContext` matters:** Every service is testable without a live Clerk instance (mock `AuthContext` directly), function intent is readable without knowing Clerk's JWT schema, and future claim changes are isolated to one file.
+
+```python
+# Right — ClerkWrapper → AuthContext → service
+@router.post("/cases/{case_id}/providers/confirm")
+async def confirm_providers(
+    case_id: UUID,
+    auth: AuthContext = Depends(get_auth_context),
+    provider_service: ProviderService = Depends(get_provider_service),
+) -> ProviderConfirmationResponse:
+    return await provider_service.confirm_and_lock_provider_list(
+        case_id=case_id,
+        firm_id=auth.firm_id,      # from AuthContext — never from Clerk directly
+        attorney_id=auth.user_id,
+    )
+```
+
+The full `get_auth_context()` implementation is in the Technical Implementation Spec Part 0.
+
+### 3.9 Environment Discipline — Explicit Disabled State is Mandatory
+
+Every capability with a future phase has an explicit disabled state via environment variable. Do not infer capability from the absence of an env var. An absent env var is a misconfiguration waiting to cause a silent failure or an unintended PHI transmission.
+
+**Current required env var states for Phase 1C:**
+
+```
+NLP_PROVIDER_BACKEND=openmed          # explicit — never inferred
+NLP_LONG_CONTEXT_BACKEND=disabled     # BioClinical ModernBERT is Phase 1D
+LLM_BACKEND=disabled                  # no LLM until Phase 1D billing reconciliation
+LLM_PHI_ALLOWED=false                 # no PHI to any LLM until provider BAA confirmed
+```
+
+If any job reads `LLM_BACKEND` and the value is `disabled`, it raises immediately with a clear error:
+
+```python
+def get_llm_service() -> LLMService:
+    backend = os.environ.get("LLM_BACKEND", "disabled")
+    if backend == "disabled":
+        raise RuntimeError(
+            "LLM_BACKEND is set to 'disabled'. "
+            "No LLM calls are permitted in Phase 1C. "
+            "If this is Phase 1D billing reconciliation, "
+            "set LLM_BACKEND=azure_openai and confirm "
+            "LLM_PHI_ALLOWED=true with Privacy Officer sign-off."
+        )
+    # ... factory logic for enabled backends
+```
+
+This means a developer who accidentally calls the LLM in Phase 1C gets an explicit error explaining exactly what to do, not a silent wrong behavior.
+
+### 3.10 Schema First — Add Fields Before You Need Them
+
+When you know a field will be needed in a future phase, add it as a nullable column now. The cost is one migration line. The cost of not doing it is a migration that touches every existing record in production.
+
+The OCR routing fields are a current example. Phase 1D will need to know which OCR engine processed each document, what type of page it was, whether escalation was needed, and whether source spans are available. Add these now as nullable columns — Phase 1C never populates them, Phase 1D does:
+
+```sql
+-- Add in the Phase 1C schema migration pass
+ALTER TABLE trace.documents ADD COLUMN document_type_guess VARCHAR(50);
+ALTER TABLE trace.documents ADD COLUMN page_type_guess VARCHAR(30);
+ALTER TABLE trace.documents ADD COLUMN ocr_route VARCHAR(30);
+ALTER TABLE trace.documents ADD COLUMN ocr_backend VARCHAR(30);
+ALTER TABLE trace.documents ADD COLUMN needs_escalation BOOLEAN DEFAULT FALSE;
+ALTER TABLE trace.documents ADD COLUMN source_spans_available BOOLEAN DEFAULT FALSE;
+```
+
+The rule: if you know a field exists in the PRD's data model but the current phase does not populate it, add it as a nullable column now. Do not defer schema additions to the phase that uses them.
+
 ---
 
 ## Part 4 — HIPAA Rules (Zero Tolerance)
@@ -378,6 +453,36 @@ No attorney ever sees data belonging to another firm. This is enforced at three 
 3. Row-level security in Supabase: RLS policies on every table
 
 All three must be in place before any case data is accessible via the API. Do not rely on any single layer. If one layer has a bug, the other two catch it.
+
+### 4.5 NPI Match is Not Authorization to Fax — Never Confuse These
+
+This rule has its own section because the mistake is easy to make and the consequence is severe. An NPI lookup that returns a single CONFIRMED match is **not** permission to transmit a fax to that provider. It is permission to show the attorney a candidate.
+
+A misdirected fax — sent to a provider the client did not authorize — is a PHI transmission to an unauthorized recipient. That is a HIPAA incident with fines up to $50,000 per violation.
+
+The mandatory sequence is enforced in code by Checkpoint 1 and Checkpoint 2. Your job is to never shortcut it, never optimize it away, and never treat an NPI result as an implicit confirmation:
+
+```python
+# Wrong — treating NPI match as authorization
+async def send_provider_request(provider_id: UUID, case_id: UUID):
+    provider = await npi_service.lookup(provider_name)
+    if provider.confidence == "CONFIRMED":
+        await fax_service.send(provider.fax_number, ...)  # WRONG — no attorney confirmation
+
+# Right — NPI enriches, attorney authorizes
+async def send_provider_request(provider_id: UUID, case_id: UUID):
+    provider = await provider_repo.get(provider_id, case_id)
+    
+    # Checkpoint 2 gate — both conditions must be true
+    if provider.confirmation_status != "LOCKED":
+        raise HTTPException(403, "Provider list must be confirmed by attorney first")
+    if case.hipaa_auth_status != "SIGNED":
+        raise HTTPException(403, "Client must sign HIPAA authorization first")
+    
+    await fax_service.send(provider.fax_number, ...)  # RIGHT — two gates passed
+```
+
+The `source_quote` field on every provider candidate exists precisely for this reason. When the attorney sees the checklist, they see: *Source: "I went straight to Cedars-Sinai ER" (intake).* That quote is what lets them judge whether the NPI match is actually the provider their client described. Without it, the attorney is confirming a name and address. With it, they are confirming a match to what their client told them.
 
 ---
 
@@ -597,6 +702,39 @@ If yes: fix it before merging.
 
 **4. If this breaks at 2am on a Saturday with no engineers available, can the attorney continue working without data loss?**
 If no: add graceful degradation, better error messages, or a support contact that can actually help.
+
+---
+
+## Report to the Orchestrator — Mandatory Session Protocol
+
+You are not working alone. This service reports to the TrueVow CTO Orchestrator, whose **only** real-time visibility into your work comes from two channels: your **git state** and your **check-ins**. If you never check in, the orchestrator dashboard shows this service as `NEGLECTED`, the CTO is flying blind, and stalled or half-finished work stays invisible — which is exactly what happened when TRACE ran 64 uncommitted files with zero check-ins while a decided OCR migration sat unimplemented.
+
+A task is not "done" until the check-in is posted. **Intent is not completion.**
+
+**Start of every session:**
+```
+python ../TrueVow_Shared_Orchestration/orchestrator.py sync-memory
+python ../TrueVow_Shared_Orchestration/orchestrator.py scan-services
+python ../TrueVow_Shared_Orchestration/orchestrator.py agent-checkin start "TRACE: <task> | resuming from <state> | goal: <what success looks like>"
+```
+
+**During work — record decisions as they happen:**
+```
+python ../TrueVow_Shared_Orchestration/memory.py remember <category> "<title>" "<content>" --importance N
+```
+
+**End of session — write back, then push:**
+```
+python ../TrueVow_Shared_Orchestration/orchestrator.py agent-checkin done "TRACE: <accomplished> | outcome: <result> | learned: <insight> | next: <remaining>" --status DONE
+python ../TrueVow_Shared_Orchestration/orchestrator.py push-memory
+```
+
+**If blocked — raise it immediately, never go silent:**
+```
+python ../TrueVow_Shared_Orchestration/orchestrator.py agent-checkin blocked "TRACE: <blocker> | attempted: <what you tried> | need: <what unblocks you>"
+```
+
+**RULE 0 — No fabrication.** Never report a build, a test count, or a metric you did not actually produce. If a command did not run green in front of you, it is not green. A stub result is not a real result. Binding platform-wide.
 
 ---
 
