@@ -1,5 +1,5 @@
 # TRACE image — Mistral OCR 4 + Tesseract + OpenMed.
-# Tier 1B: Mistral OCR 4 self-hosted (Fly.io sidecar, no BAA, no per-page cost).
+# Tier 1B OCR: Mistral OCR 4 self-hosted (Fly.io sidecar, no BAA, no per-page cost).
 # Tier 1B fallback: Tesseract (local, always available).
 # Replaces PaddleOCR-VL (eliminated — oneDNN cross-platform bug).
 FROM python:3.11-slim
