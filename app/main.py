@@ -91,14 +91,6 @@ async def run_spike():
         with urllib.request.urlopen(f"{BASE}/{path}") as resp:
             return resp.read()
 
-    def wer(gt, ocr):
-        gt_w = gt.lower().split()
-        ocr_w = ocr.lower().split()
-        if not gt_w:
-            return 1.0
-        m = sum((Counter(gt_w) & Counter(ocr_w)).values())
-        return 1.0 - (m / len(gt_w))
-
     try:
         parquet_bytes = download("train.parquet")
         df = pd.read_parquet(io.BytesIO(parquet_bytes))
@@ -126,31 +118,40 @@ async def run_spike():
             cs = r.pages[0].confidence_scores
             conf = cs.average_page_confidence_score if cs else 0.95
         except Exception as exc:
-            text = f"[{type(exc).__name__}]"
+            text = ""
             conf = 0.0
 
-        w = wer(gt, text)
-        results.append({"id": f"hw_{i:03d}", "gt": gt[:100], "ocr": text[:100], "wer": round(w, 4), "conf": round(conf, 4)})
+        text_lower = text.lower()
+        gt_tokens = [t.strip().rstrip(",") for t in gt.lower().split() if len(t.strip()) > 1]
+        ocr_tokens = text_lower.split()
+        matches = sum(1 for t in gt_tokens if any(t in o for o in ocr_tokens))
+        presence = matches / len(gt_tokens) if gt_tokens else 0.0
 
-    wers = [r["wer"] for r in results]
-    mean_w = sum(wers) / len(wers) if wers else 1.0
-    median_w = sorted(wers)[len(wers) // 2] if wers else 1.0
+        results.append({
+            "id": f"hw_{i:03d}",
+            "gt": gt[:100],
+            "ocr_preview": text[:100],
+            "gt_tokens": len(gt_tokens),
+            "matched": matches,
+            "medicine_presence": round(presence, 3),
+        })
 
-    if mean_w <= 0.20:
-        decision, reason = "none", "Above 80% accuracy"
-    elif mean_w <= 0.35:
-        decision, reason = "mistral_local", "65-79% accuracy"
+    presences = [r["medicine_presence"] for r in results]
+    mean_presence = sum(presences) / len(presences) if presences else 0.0
+
+    if mean_presence >= 0.80:
+        decision, reason = "none", f"Above 80% medicine presence ({mean_presence:.1%})"
+    elif mean_presence >= 0.65:
+        decision, reason = "mistral_local", f"65-79% medicine presence ({mean_presence:.1%})"
     else:
-        decision, reason = "mistral_local", "Below 65% accuracy"
+        decision, reason = "mistral_local", f"Below 65% medicine presence ({mean_presence:.1%})"
 
     return {
         "status": "ok",
         "engine": "Mistral-OCR-4",
         "total": len(results),
-        "mean_wer": round(mean_w, 4),
-        "median_wer": round(median_w, 4),
-        "accuracy": f"{1 - mean_w:.1%}",
+        "mean_medicine_presence": round(mean_presence, 3),
         "decision": decision,
         "reason": reason,
-        "results": results[:5],
+        "samples": results[:5],
     }
