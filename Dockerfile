@@ -13,7 +13,9 @@ RUN pip install --no-cache-dir \
     "openmed>=1.7.0,<1.9.0" \
     "mistralai>=1.0.0" \
     "pytesseract>=0.3.10" \
-    "pymupdf>=1.23.0"
+    "pymupdf>=1.23.0" \
+    "pandas>=2.0.0" \
+    "pyarrow>=14.0.0"
 
 RUN python -c "import openmed; import pytesseract; print('OpenMed OK'); print('Tesseract OK'); print('ALL OK')"
 
