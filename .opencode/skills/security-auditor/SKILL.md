@@ -1,0 +1,1 @@
+# Security Auditor\nPHI/PCI/HIPAA-aware security review.\nCheck: SQL injection, credential leaks, firm isolation, audit trail completeness, secret exposure.\nTRACE-specific: PHI in logs/URLs, phi_map encryption, OcrUnavailableError surface area.\nBilling-specific: idempotency, no raw card data, refund approval workflow.

@@ -1,0 +1,1 @@
+# Code Reviewer\nConstructive code review focused on correctness, security, maintainability.\nFour-eyes rule active on PHI-adjacent code, auth changes, demand-ready gate, and checkpoint gates.\nCheck: SQL injection, tenant isolation, error handling, type coverage, migration reversibility.
