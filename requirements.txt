@@ -21,14 +21,11 @@ python-dotenv>=1.0.0
 #   pip install openmed[hf]>=1.7.0,<1.9.0
 openmed>=1.7.0,<1.9.0
 
-# OCR engine (Phase 1D: image-based document text extraction)
-# PaddleOCR-VL 1.5 (Tier 1B) — self-hosted, CPU, air-gapped.
-# Replaces deepdoctection+DocTr (eliminated per ADR-003 / Tech Spec Part 2).
-# numpy pinned <2 for paddle/opencv ABI compatibility.
-# System deps (Dockerfile): libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1
-numpy<2
-paddlepaddle>=2.6.0
-paddleocr>=2.7.0
+# OCR (Phase 1D: multi-tier document text extraction)
+# Tier 1B primary: Mistral OCR 4 self-hosted (Fly.io sidecar, no BAA needed)
+# Tier 1B fallback: Tesseract (local, always available)
+# Mistral API client for dev/staging (MISTRAL_API_KEY env var)
+mistralai>=1.0.0
 pytesseract>=0.3.10
 pymupdf>=1.23.0
 

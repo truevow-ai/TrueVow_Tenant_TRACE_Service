@@ -1,24 +1,14 @@
 """OCR Pipeline — tiered text extraction + de-identification.
 
-Four-tier routing (per ADR-003 / Tech Spec Part 2):
-  TIER 0 : pypdf         — embedded text layer (no OCR needed)
-  TIER 1A: Docling       — digital PDFs with no text layer  [see NOTE below]
-  TIER 1B: PaddleOCR-VL  — scanned / faxed / handwritten pages
-  TIER 2 : Mistral OCR   — cloud, only when Tier 1B confidence < 80%
-
-Replaces the prior image-OCR engine (eliminated). Surfaces clearly when OCR is
-unavailable — never silently returns empty text. Attorney sees:
-"OCR processing unavailable for image-based documents" with an actionable
-next step, not a silently empty chronology.
-
-NOTE (flagged for review): Tier 1B feeds PaddleOCR rasterized page images.
-Rasterization uses PyMuPDF (`fitz`), which must be added to requirements.txt
-and the Dockerfile before this path works end-to-end. Tier 1A (Docling for
-digital-no-text PDFs) is scaffolded but not yet wired into the router.
+Tier 0 : pypdf        — embedded text layer (no OCR needed)
+Tier 1B: Mistral OCR 4 — self-hosted Fly.io sidecar, or API key in dev
+Tier 1B: Tesseract     — local fallback when Mistral is unavailable
+Tier 2 : Mistral OCR   — cloud, only when Tier 1B confidence < 80%
 """
 
 from __future__ import annotations
 
+import os
 import uuid
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -63,7 +53,7 @@ class OCRDocumentResult:
     document_id: uuid.UUID
     pages: list[OCRPageResult] = field(default_factory=list)
     document_type_guess: str = "UNKNOWN"
-    ocr_route: str = "PADDLEOCR_VL"
+    ocr_route: str = "MISTRAL_OCR"
     method: str = "none"
     needs_ocr: bool = True
 
@@ -83,8 +73,7 @@ def get_escalation_threshold(document_type: str, language: str) -> float:
 
 
 def _extract_embedded_text(pdf_bytes: bytes) -> tuple[str, bool]:
-    """TIER 0 — extract text from digital PDFs that already have a text layer.
-    Returns (text, had_substantial_text)."""
+    """TIER 0 — extract text from digital PDFs that already have a text layer."""
     try:
         from pypdf import PdfReader
 
@@ -100,47 +89,8 @@ def _extract_embedded_text(pdf_bytes: bytes) -> tuple[str, bool]:
         return "", False
 
 
-# TIER 1B — PaddleOCR-VL (primary) with Tesseract fallback.
-# PaddleOCR 3.3.1 has a cross-platform oneDNN bug (pir::ArrayAttribute<double>)
-# that prevents all PP-OCR models from running on CPU. Tesseract serves as the
-# active engine until the upstream PaddlePaddle fix ships.
-# Once PaddlePaddle >= 3.3.2 is available, remove the NotImplementedError catch.
-_OCR_ENGINE = None
-_OCR_BACKEND = "paddleocr"
-
-
-def _get_ocr_engine():
-    global _OCR_ENGINE, _OCR_BACKEND
-    if _OCR_ENGINE is not None:
-        return _OCR_ENGINE
-
-    try:
-        from paddleocr import PaddleOCR
-
-        engine = PaddleOCR(lang="en")
-        _ = engine  # touch import — may raise
-    except Exception as exc:
-        logger.warning("PaddleOCR unavailable (%s), falling back to Tesseract", type(exc).__name__)
-        _OCR_BACKEND = "tesseract"
-    else:
-        _OCR_ENGINE = engine
-        _OCR_BACKEND = "paddleocr"
-        return _OCR_ENGINE
-
-    import pytesseract
-
-    _OCR_ENGINE = "tesseract"
-    _OCR_BACKEND = "tesseract"
-    return _OCR_ENGINE
-
-
 def _rasterize_pdf(pdf_bytes: bytes) -> list:
-    """Rasterize PDF pages to image arrays for OCR.
-
-    Uses PyMuPDF (`fitz`). Raises if unavailable so the caller fails loudly
-    rather than silently returning empty text. `pymupdf` must be present in
-    requirements.txt / Dockerfile for this to work.
-    """
+    """Rasterize PDF pages to image arrays for OCR."""
     import fitz  # PyMuPDF
     import numpy as np
 
@@ -158,41 +108,78 @@ def _rasterize_pdf(pdf_bytes: bytes) -> list:
     return images
 
 
+def _run_mistral_ocr(image) -> tuple[str, float]:
+    """Run Mistral OCR 4 on a single page image. Returns (text, confidence)."""
+    try:
+        import base64
+
+        from mistralai import Mistral
+
+        api_key = os.environ.get("MISTRAL_API_KEY", "")
+        server_url = os.environ.get("MISTRAL_OCR_URL", "")
+
+        if server_url:
+            client = Mistral(server_url=server_url)
+        elif api_key:
+            client = Mistral(api_key=api_key)
+        else:
+            raise OcrUnavailableError(uuid.uuid4())
+
+        import numpy as np
+        from PIL import Image
+
+        if isinstance(image, np.ndarray):
+            img = Image.fromarray(image)
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            img_bytes = buf.getvalue()
+        else:
+            img_bytes = image
+
+        b64 = base64.b64encode(img_bytes).decode()
+
+        response = client.ocr.process(
+            model="mistral-ocr-latest",
+            document={
+                "type": "image_url",
+                "image_url": f"data:image/png;base64,{b64}",
+            },
+            include_image_base64=False,
+        )
+
+        text_parts: list[str] = []
+        if response.pages:
+            for page in response.pages:
+                text_parts.append(page.markdown)
+        return "\n".join(text_parts), 0.95
+
+    except Exception as exc:
+        logger.warning("Mistral OCR failed: %s", exc)
+        return "", 0.0
+
+
 def _run_tesseract(image) -> tuple[str, float]:
-    """Run Tesseract OCR on a single page image. Returns (text, mean_confidence)."""
+    """Run Tesseract OCR on a single page image. Returns (text, confidence)."""
+    import numpy as np
     import pytesseract
+    from PIL import Image
 
     try:
-        text = pytesseract.image_to_string(image).strip()
-        conf_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
-        confidences = [
-            int(c) for c in conf_data["conf"] if c != "-1" and c != "-1"
-        ]
-        mean_conf = sum(confidences) / len(confidences) / 100.0 if confidences else 0.0
+        if isinstance(image, np.ndarray):
+            img = Image.fromarray(image)
+        else:
+            img = image
+
+        text = pytesseract.image_to_string(img).strip()
+
+        conf_data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+        confs = [int(c) for c in conf_data["conf"] if c != "-1"]
+        mean_conf = sum(confs) / len(confs) / 100.0 if confs else 0.0
+
         return text, mean_conf
-    except Exception:
+    except Exception as exc:
+        logger.warning("Tesseract OCR failed: %s", exc)
         return "", 0.0
-
-
-def _run_paddleocr(image) -> tuple[str, float]:
-    """Run PaddleOCR-VL on a single page image. Returns (text, mean_confidence)."""
-    engine = _get_ocr_engine()
-    if _OCR_BACKEND == "tesseract":
-        return _run_tesseract(image)
-
-    result = engine.predict(image)
-    if not result:
-        return "", 0.0
-    texts: list[str] = []
-    confidences: list[float] = []
-    for item in result:
-        rec_text = item.get("rec_text", "")
-        rec_score = item.get("rec_score", 0.0)
-        if rec_text:
-            texts.append(str(rec_text))
-            confidences.append(float(rec_score))
-    mean_conf = sum(confidences) / len(confidences) if confidences else 0.0
-    return " ".join(texts), mean_conf
 
 
 async def run_ocr_pipeline(
@@ -201,47 +188,46 @@ async def run_ocr_pipeline(
     *,
     enable_tier2: bool = False,
 ) -> OCRDocumentResult:
-    """Run OCR on a document. Handles digital and image-based PDFs correctly."""
+    """Run OCR on a document. Tier 0 (pypdf) -> Tier 1B (Mistral/Tesseract) -> Tier 2 (cloud)."""
     from app.services.nlp import create_openmed_service
 
     nlp = create_openmed_service()
     result = OCRDocumentResult(document_id=document_id)
-    raw_text = ""
 
     embedded_text, has_substantial_text = _extract_embedded_text(pdf_bytes)
 
     if has_substantial_text:
-        # TIER 0 — embedded text layer.
-        raw_text = embedded_text
         result.method = "PYPDF_EMBEDDED_TEXT"
         result.ocr_route = "PYPDF"
         result.needs_ocr = False
         result.document_type_guess = "TYPED"
-        page = OCRPageResult(page_number=1, raw_text=raw_text, backend="pypdf", confidence=1.0)
+        page = OCRPageResult(page_number=1, raw_text=embedded_text, backend="pypdf", confidence=1.0)
         result.pages.append(page)
     else:
-        # TIER 1B — PaddleOCR-VL on rasterized page images.
         try:
             images = _rasterize_pdf(pdf_bytes)
             raw_parts: list[str] = []
-            confidences: list[float] = []
             for page_number, image in enumerate(images, start=1):
-                page_text, page_conf = _run_paddleocr(image)
+                page_text, page_conf = _run_mistral_ocr(image)
+                if not page_text:
+                    page_text, page_conf = _run_tesseract(image)
+                    backend = "tesseract"
+                else:
+                    backend = "mistral_ocr"
+
                 raw_parts.append(page_text)
-                confidences.append(page_conf)
                 result.pages.append(
                     OCRPageResult(
                         page_number=page_number,
                         raw_text=page_text,
-                        backend="paddleocr",
+                        backend=backend,
                         confidence=page_conf,
                         is_handwritten=True,
                     )
                 )
-            raw_text = "\n".join(raw_parts)
 
-            result.method = _OCR_BACKEND.upper()
-            result.ocr_route = _OCR_BACKEND.upper()
+            result.method = backend.upper()
+            result.ocr_route = backend.upper()
             result.needs_ocr = True
             result.document_type_guess = "HANDWRITTEN"
 
@@ -249,9 +235,10 @@ async def run_ocr_pipeline(
                 page = OCRPageResult(page_number=1, raw_text="", backend="none")
                 page.quality_flags.append("EMPTY_PAGE")
                 result.pages.append(page)
+
         except Exception as exc:
             logger.error(
-                "PaddleOCR-VL OCR failed for image-based PDF",
+                "OCR failed for image-based PDF",
                 extra={"document_id": str(document_id), "error": str(exc)},
             )
             result.method = "OCR_UNAVAILABLE"
@@ -259,7 +246,6 @@ async def run_ocr_pipeline(
             page = OCRPageResult(page_number=1, raw_text="", backend="none", ocr_unavailable=True)
             page.quality_flags.append("OCR_UNAVAILABLE")
             result.pages.append(page)
-
             await nlp.close()
             raise OcrUnavailableError(document_id) from exc
 
@@ -279,7 +265,6 @@ async def run_ocr_pipeline(
         )
         if page.is_handwritten or page.confidence < threshold:
             page.quality_flags.append("LOW_CONFIDENCE")
-            # TIER 2 — Mistral OCR escalation (cloud) when Tier 1B is below threshold.
             if enable_tier2 and not page.ocr_unavailable:
                 page.quality_flags.append("NEEDS_ESCALATION")
                 page.needs_escalation = True

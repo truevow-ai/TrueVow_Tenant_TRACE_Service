@@ -1,6 +1,7 @@
-# TRACE OCR/NLP image — PaddleOCR-VL 1.5 (Tier 1B) + OpenMed.
-# Replaces deepdoctection+DocTr (eliminated per ADR-003 / Tech Spec Part 2).
-# Docling (Tier 1A) is deployed as a separate service for digital PDFs.
+# TRACE image — Mistral OCR 4 + Tesseract + OpenMed.
+# Tier 1B: Mistral OCR 4 self-hosted (Fly.io sidecar, no BAA, no per-page cost).
+# Tier 1B fallback: Tesseract (local, always available).
+# Replaces PaddleOCR-VL (eliminated — oneDNN cross-platform bug).
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -8,16 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir "numpy<2"
-
 RUN pip install --no-cache-dir \
-    "paddlepaddle>=2.6.0" \
-    "paddleocr>=2.7.0"
+    "openmed>=1.7.0,<1.9.0" \
+    "mistralai>=1.0.0" \
+    "pytesseract>=0.3.10" \
+    "pymupdf>=1.23.0"
 
-RUN pip install --no-cache-dir \
-    "openmed>=1.7.0,<1.9.0"
-
-RUN python -c "from paddleocr import PaddleOCR; import openmed; print('PaddleOCR OK'); print('OpenMed OK'); print('ALL OK')"
+RUN python -c "import openmed; import pytesseract; print('OpenMed OK'); print('Tesseract OK'); print('ALL OK')"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
