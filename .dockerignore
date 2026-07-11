@@ -5,6 +5,5 @@ __pycache__/
 .git/
 node_modules/
 .env.local
-tests/spike_output/
 Dockerfile.paddle
 Dockerfile.spike
