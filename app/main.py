@@ -69,3 +69,36 @@ async def health() -> dict:
         "version": settings.app_version,
         "environment": settings.environment,
     }
+
+
+@app.get("/test-mistral-ocr", tags=["test"])
+async def test_mistral_ocr():
+    import base64, os
+    from mistralai.client import Mistral
+
+    api_key = os.environ.get("MISTRAL_API_KEY", "")
+    if not api_key:
+        return {"status": "error", "reason": "MISTRAL_API_KEY not set"}
+
+    try:
+        from PIL import Image
+        import io
+
+        img = Image.new("RGB", (300, 80), "white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b = base64.b64encode(buf.getvalue()).decode()
+
+        client = Mistral(api_key=api_key)
+        r = client.ocr.process(
+            model="mistral-ocr-latest",
+            document={"type": "image_url", "image_url": f"data:image/png;base64,{b}"},
+            include_image_base64=False,
+        )
+        return {
+            "status": "ok",
+            "pages": len(r.pages),
+            "markdown_preview": r.pages[0].markdown[:200] if r.pages else "",
+        }
+    except Exception as exc:
+        return {"status": "error", "reason": str(exc)}
