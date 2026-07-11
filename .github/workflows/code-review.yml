@@ -1,4 +1,4 @@
-name: Code Review (ocr)
+name: Code Review (OpenCodeReview)
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
       - uses: alibaba/open-code-review@main
         with:
-          llm_url: ${{ secrets.OCR_LLM_URL }}
-          llm_auth_token: ${{ secrets.OCR_LLM_AUTH_TOKEN }}
-          llm_model: ${{ vars.OCR_LLM_MODEL }}
-          llm_use_anthropic: ${{ vars.OCR_LLM_USE_ANTHROPIC }}
+          llm_url: ${{ secrets.OPENCODEREVIEW_LLM_URL }}
+          llm_auth_token: ${{ secrets.OPENCODEREVIEW_LLM_AUTH_TOKEN }}
+          llm_model: ${{ vars.OPENCODEREVIEW_LLM_MODEL }}
+          llm_use_anthropic: ${{ vars.OPENCODEREVIEW_LLM_USE_ANTHROPIC }}
