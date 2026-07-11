@@ -71,34 +71,86 @@ async def health() -> dict:
     }
 
 
-@app.get("/test-mistral-ocr", tags=["test"])
-async def test_mistral_ocr():
-    import base64, os
+@app.get("/run-spike", tags=["test"])
+async def run_spike():
+    """Run Mistral OCR spike against 30 prescription images from GitHub."""
+    import base64, io, json, os, urllib.request
+    from collections import Counter
+    from datetime import datetime, timezone
+
+    import pandas as pd
     from mistralai.client import Mistral
 
     api_key = os.environ.get("MISTRAL_API_KEY", "")
     if not api_key:
         return {"status": "error", "reason": "MISTRAL_API_KEY not set"}
 
+    BASE = "https://raw.githubusercontent.com/truevow-ai/TrueVow_Tenant_TRACE_Service/main/tests/spike_output/real_hw"
+
+    def download(path):
+        with urllib.request.urlopen(f"{BASE}/{path}") as resp:
+            return resp.read()
+
+    def wer(gt, ocr):
+        gt_w = gt.lower().split()
+        ocr_w = ocr.lower().split()
+        if not gt_w:
+            return 1.0
+        m = sum((Counter(gt_w) & Counter(ocr_w)).values())
+        return 1.0 - (m / len(gt_w))
+
     try:
-        from PIL import Image
-        import io
-
-        img = Image.new("RGB", (300, 80), "white")
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        b = base64.b64encode(buf.getvalue()).decode()
-
-        client = Mistral(api_key=api_key)
-        r = client.ocr.process(
-            model="mistral-ocr-latest",
-            document={"type": "image_url", "image_url": f"data:image/png;base64,{b}"},
-            include_image_base64=False,
-        )
-        return {
-            "status": "ok",
-            "pages": len(r.pages),
-            "markdown_preview": r.pages[0].markdown[:200] if r.pages else "",
-        }
+        parquet_bytes = download("train.parquet")
+        df = pd.read_parquet(io.BytesIO(parquet_bytes))
     except Exception as exc:
-        return {"status": "error", "reason": str(exc)}
+        return {"status": "error", "reason": f"Parquet download: {exc}"}
+
+    client = Mistral(api_key=api_key)
+    results = []
+
+    for i in range(min(30, len(df))):
+        row = df.iloc[i]
+        gt = str(row.get("medicines", "")) if pd.notna(row.get("medicines")) else ""
+        if not gt.strip():
+            continue
+
+        try:
+            img_bytes = download(f"hw_{i:03d}.png")
+            b = base64.b64encode(img_bytes).decode()
+            r = client.ocr.process(
+                model="mistral-ocr-latest",
+                document={"type": "image_url", "image_url": f"data:image/png;base64,{b}"},
+                include_image_base64=False,
+            )
+            text = r.pages[0].markdown.strip() if r.pages else ""
+            cs = r.pages[0].confidence_scores
+            conf = cs.average_page_confidence_score if cs else 0.95
+        except Exception as exc:
+            text = f"[{type(exc).__name__}]"
+            conf = 0.0
+
+        w = wer(gt, text)
+        results.append({"id": f"hw_{i:03d}", "gt": gt[:100], "ocr": text[:100], "wer": round(w, 4), "conf": round(conf, 4)})
+
+    wers = [r["wer"] for r in results]
+    mean_w = sum(wers) / len(wers) if wers else 1.0
+    median_w = sorted(wers)[len(wers) // 2] if wers else 1.0
+
+    if mean_w <= 0.20:
+        decision, reason = "none", "Above 80% accuracy"
+    elif mean_w <= 0.35:
+        decision, reason = "mistral_local", "65-79% accuracy"
+    else:
+        decision, reason = "mistral_local", "Below 65% accuracy"
+
+    return {
+        "status": "ok",
+        "engine": "Mistral-OCR-4",
+        "total": len(results),
+        "mean_wer": round(mean_w, 4),
+        "median_wer": round(median_w, 4),
+        "accuracy": f"{1 - mean_w:.1%}",
+        "decision": decision,
+        "reason": reason,
+        "results": results[:5],
+    }
