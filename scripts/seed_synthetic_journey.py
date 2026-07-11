@@ -17,6 +17,9 @@ import sys
 import uuid
 from datetime import date, datetime, timezone
 from io import BytesIO
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Synthetic data constants
 SYNTHETIC_ATTORNEY = {
@@ -149,7 +152,7 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
                     "fax_number": "3105551234",
                     "specialty": "Chiropractic",
                     "confirmation_status": "UNCONFIRMED",
-                    "extraction_confidence": "NEEDS_CLIENT_CONFIRMATION",
+                    "extraction_confidence": "UNCONFMD",
                     "source_reference": "intake:chiropractor on Vermont Ave",
                 },
                 {
@@ -159,7 +162,7 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
                     "fax_number": "",
                     "specialty": "Physical Therapy",
                     "confirmation_status": "UNCONFIRMED",
-                    "extraction_confidence": "DO_NOT_REQUEST",
+                    "extraction_confidence": "NO_REQ",
                     "source_reference": "intake:PT twice a week in Marina del Rey",
                 },
             ]
@@ -188,7 +191,7 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
             bill = MedicalBillLine(
                 case_id=case.case_id,
                 firm_id=firm_id,
-                document_id=uuid.uuid4(),
+                document_id=None,
                 provider_id=uuid.UUID(provider_ids[0]),
                 date_of_service=date(2024, 3, 15),
                 cpt_code="99285",

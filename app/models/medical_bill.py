@@ -31,7 +31,7 @@ class MedicalBillLine(Base, TimestampMixin):
     bill_line_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     case_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("cases.case_id", ondelete="CASCADE"), nullable=False)
     firm_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
-    document_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("documents.document_id"), nullable=False)
+    document_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("documents.document_id"), nullable=True)
     provider_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("providers.provider_id"), nullable=True)
     date_of_service: Mapped[date_type | None] = mapped_column(Date, nullable=True)
     cpt_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
