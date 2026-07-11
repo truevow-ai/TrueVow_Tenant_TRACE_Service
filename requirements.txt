@@ -29,6 +29,8 @@ openmed>=1.7.0,<1.9.0
 numpy<2
 paddlepaddle>=2.6.0
 paddleocr>=2.7.0
+pytesseract>=0.3.10
+pymupdf>=1.23.0
 
 # Dev / test
 pytest>=8.0.0

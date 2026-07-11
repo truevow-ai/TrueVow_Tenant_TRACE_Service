@@ -100,21 +100,42 @@ def _extract_embedded_text(pdf_bytes: bytes) -> tuple[str, bool]:
         return "", False
 
 
-# TIER 1B — PaddleOCR-VL singleton. Built once, CPU-only, air-gapped.
+# TIER 1B — PaddleOCR-VL (primary) with Tesseract fallback.
+# PaddleOCR 3.3.1 has a cross-platform oneDNN bug (pir::ArrayAttribute<double>)
+# that prevents all PP-OCR models from running on CPU. Tesseract serves as the
+# active engine until the upstream PaddlePaddle fix ships.
+# Once PaddlePaddle >= 3.3.2 is available, remove the NotImplementedError catch.
 _OCR_ENGINE = None
+_OCR_BACKEND = "paddleocr"
 
 
 def _get_ocr_engine():
-    global _OCR_ENGINE
-    if _OCR_ENGINE is None:
+    global _OCR_ENGINE, _OCR_BACKEND
+    if _OCR_ENGINE is not None:
+        return _OCR_ENGINE
+
+    try:
         from paddleocr import PaddleOCR
 
-        _OCR_ENGINE = PaddleOCR(use_angle_cls=True, lang="en", use_gpu=False)
+        engine = PaddleOCR(lang="en")
+        _ = engine  # touch import — may raise
+    except Exception as exc:
+        logger.warning("PaddleOCR unavailable (%s), falling back to Tesseract", type(exc).__name__)
+        _OCR_BACKEND = "tesseract"
+    else:
+        _OCR_ENGINE = engine
+        _OCR_BACKEND = "paddleocr"
+        return _OCR_ENGINE
+
+    import pytesseract
+
+    _OCR_ENGINE = "tesseract"
+    _OCR_BACKEND = "tesseract"
     return _OCR_ENGINE
 
 
 def _rasterize_pdf(pdf_bytes: bytes) -> list:
-    """Rasterize PDF pages to image arrays for PaddleOCR (Tier 1B).
+    """Rasterize PDF pages to image arrays for OCR.
 
     Uses PyMuPDF (`fitz`). Raises if unavailable so the caller fails loudly
     rather than silently returning empty text. `pymupdf` must be present in
@@ -137,18 +158,39 @@ def _rasterize_pdf(pdf_bytes: bytes) -> list:
     return images
 
 
+def _run_tesseract(image) -> tuple[str, float]:
+    """Run Tesseract OCR on a single page image. Returns (text, mean_confidence)."""
+    import pytesseract
+
+    try:
+        text = pytesseract.image_to_string(image).strip()
+        conf_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+        confidences = [
+            int(c) for c in conf_data["conf"] if c != "-1" and c != "-1"
+        ]
+        mean_conf = sum(confidences) / len(confidences) / 100.0 if confidences else 0.0
+        return text, mean_conf
+    except Exception:
+        return "", 0.0
+
+
 def _run_paddleocr(image) -> tuple[str, float]:
     """Run PaddleOCR-VL on a single page image. Returns (text, mean_confidence)."""
     engine = _get_ocr_engine()
-    result = engine.ocr(image, cls=True)
-    if not result or not result[0]:
+    if _OCR_BACKEND == "tesseract":
+        return _run_tesseract(image)
+
+    result = engine.predict(image)
+    if not result:
         return "", 0.0
     texts: list[str] = []
     confidences: list[float] = []
-    for line in result[0]:
-        if line and len(line) >= 2:
-            texts.append(line[1][0])
-            confidences.append(float(line[1][1]))
+    for item in result:
+        rec_text = item.get("rec_text", "")
+        rec_score = item.get("rec_score", 0.0)
+        if rec_text:
+            texts.append(str(rec_text))
+            confidences.append(float(rec_score))
     mean_conf = sum(confidences) / len(confidences) if confidences else 0.0
     return " ".join(texts), mean_conf
 
@@ -198,8 +240,8 @@ async def run_ocr_pipeline(
                 )
             raw_text = "\n".join(raw_parts)
 
-            result.method = "PADDLEOCR_VL"
-            result.ocr_route = "PADDLEOCR_VL"
+            result.method = _OCR_BACKEND.upper()
+            result.ocr_route = _OCR_BACKEND.upper()
             result.needs_ocr = True
             result.document_type_guess = "HANDWRITTEN"
 
