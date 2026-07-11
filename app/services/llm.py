@@ -1,24 +1,30 @@
 """LLMService abstraction — plug-and-play billing reconciliation backend.
 
-ADR-001 §2: a single ``LLM_SERVICE_PROVIDER`` env var selects the backend
-at deploy time with zero code changes. Production uses DeepSeek V4 Pro
-(air-gapped, self-hosted within the Fly.io HIPAA boundary). Dev/staging
-uses Azure OpenAI (BAA-covered under Microsoft Healthcare BAA).
+ADR-001 §2 + ADR-003 §4b: ``LLM_SERVICE_PROVIDER`` env var selects
+the backend at deploy time with zero code changes.
 
-The application calls ``llm_service.complete(prompt)`` — it never imports
-a specific backend implementation directly.
+Primary production: Azure OpenAI GPT-4o-mini (BAA under Microsoft DPA,
+~$0.50/month at TRACE volume, no self-hosted infra needed).
+
+DeepSeek V4 Pro self-hosted removed (AD update July 9, 2026):
+breakeven at 31-36M tokens/day vs TRACE's 37K — 0.1% of threshold.
+DeepSeek V4 Flash via inference API added as cost comparison candidate.
+
+The application calls ``llm_service.complete(prompt)`` — it never
+imports a specific backend implementation directly.
 """
 
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 
 
 class LLMProvider(str, Enum):
-    DEEPSEEK = "deepseek"
     AZURE_OPENAI = "azure_openai"
+    DEEPSEEK_API = "deepseek_api"
     ANTHROPIC = "anthropic"
 
 
@@ -40,19 +46,19 @@ class LLMService(ABC):
         raise NotImplementedError
 
 
-class DeepSeekLLMService(LLMService):
-    """Billing reconciliation LLM running air-gapped within Fly.io boundary.
+class DeepSeekAPILLMService(LLMService):
+    """DeepSeek V4 Flash via inference API (HIPAA-aligned provider like DeepInfra).
 
-    ADR-001 §26: model variant, memory requirements, and inference latency
-    must be benchmarked before Phase 1D. This stub returns a placeholder.
+    Cost comparison candidate per AD update July 2026. Not self-hosted — runs
+    through a BAA-covered inference provider. 60% cheaper than GPT-4o-mini.
     """
 
-    def __init__(self, model_id: str = "deepseek-ai/DeepSeek-V4-Pro") -> None:
+    def __init__(self, model_id: str = "deepseek-ai/DeepSeek-V4-Flash") -> None:
         self._model_id = model_id
 
     async def complete(self, prompt: str, max_tokens: int = 256) -> LLMCompletionResult:
         return LLMCompletionResult(
-            content="[DeepSeek V4 Pro stub — Phase 1D billing reconciliation not yet built]",
+            content="[DeepSeek V4 Flash API stub — Phase 1D billing reconciliation not yet built]",
             model=self._model_id,
         )
 
@@ -65,15 +71,22 @@ class AzureOpenAILLMService(LLMService):
 
     Covered under Microsoft Healthcare BAA. Stripped PHI only — never
     send client names, DOBs, or addresses in the prompt.
+
+    All connection parameters come from environment:
+      AZURE_OPENAI_ENDPOINT   — https://your-resource.openai.azure.com/
+      AZURE_OPENAI_API_KEY     — Azure API key
+      AZURE_OPENAI_DEPLOYMENT  — Deployment name from Azure AI Foundry
     """
 
-    def __init__(self, deployment_name: str = "gpt-4o-mini") -> None:
-        self._deployment_name = deployment_name
+    def __init__(self, endpoint: str, api_key: str, deployment: str) -> None:
+        self._endpoint = endpoint.rstrip("/")
+        self._api_key = api_key
+        self._deployment = deployment
 
     async def complete(self, prompt: str, max_tokens: int = 256) -> LLMCompletionResult:
         return LLMCompletionResult(
             content="[Azure OpenAI stub — Phase 1D billing reconciliation not yet built]",
-            model=self._deployment_name,
+            model=self._deployment,
         )
 
     async def close(self) -> None:
@@ -100,15 +113,19 @@ class AnthropicLLMService(LLMService):
 
 
 def create_llm_service(provider: str = "") -> LLMService:
-    provider = provider or LLMProvider.DEEPSEEK.value
-    if provider == LLMProvider.DEEPSEEK.value:
-        return DeepSeekLLMService()
+    provider = provider or os.environ.get("LLM_SERVICE_PROVIDER", LLMProvider.AZURE_OPENAI.value)
     if provider == LLMProvider.AZURE_OPENAI.value:
-        return AzureOpenAILLMService()
+        return AzureOpenAILLMService(
+            endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            api_key=os.environ["AZURE_OPENAI_API_KEY"],
+            deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+        )
+    if provider == LLMProvider.DEEPSEEK_API.value:
+        return DeepSeekAPILLMService()
     if provider == LLMProvider.ANTHROPIC.value:
         return AnthropicLLMService()
     raise ValueError(
         f"Unrecognized LLM_SERVICE_PROVIDER: {provider!r}. "
-        f"Must be one of: deepseek, azure_openai, anthropic. "
+        f"Must be one of: azure_openai, deepseek_api, anthropic. "
         f"Silent fallback is prohibited — misconfiguration is a PHI risk."
     )

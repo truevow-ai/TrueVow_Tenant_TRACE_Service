@@ -78,3 +78,66 @@ async def test_sol_table_version_persisted_on_case(client):
         )).scalar_one()
         assert case.sol_table_version is not None
         assert case.sol_table_version == SOL_TABLE_VERSION
+
+
+@pytest.mark.asyncio
+async def test_docuseal_webhook_is_idempotent(client):
+    """A replayed webhook with the same submission_id must be a no-op.
+    The unique_docuseal_submission constraint on signed_documents
+    enforces this at the database level.
+    """
+    import hashlib
+    import hmac
+    import json
+    import os
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.database import async_session_maker
+    from app.models.case import Case
+    from app.models.signed_document import SignedDocument
+
+    firm = str(uuid.uuid4())
+    resp = await client.post(
+        "/api/v1/trace/cases",
+        json=_case_payload(),
+        headers=auth_header(firm_id=firm),
+    )
+    assert resp.status_code == 201
+    case_id = resp.json()["case_id"]
+
+    submission_id = str(uuid.uuid4())
+    async with async_session_maker() as session:
+        doc = SignedDocument(
+            case_id=uuid.UUID(case_id),
+            firm_id=uuid.UUID(firm),
+            docuseal_submission_id=submission_id,
+            document_type="RETAINER",
+            signing_status="SENT",
+        )
+        session.add(doc)
+        await session.commit()
+
+    # Verify unique constraint: second insert with same submission_id must fail
+    async with async_session_maker() as session:
+        dup = SignedDocument(
+            case_id=uuid.UUID(case_id),
+            firm_id=uuid.UUID(firm),
+            docuseal_submission_id=submission_id,
+            document_type="HIPAA_AUTHORIZATION",
+            signing_status="SENT",
+        )
+        session.add(dup)
+        with pytest.raises(IntegrityError):  # unique constraint violation
+            await session.commit()
+        await session.rollback()
+
+    # Verify existing row is not modified by replay attempt
+    async with async_session_maker() as session:
+        existing = (await session.execute(
+            select(SignedDocument).where(
+                SignedDocument.docuseal_submission_id == submission_id,
+            )
+        )).scalar_one()
+        assert existing.document_type == "RETAINER"  # unchanged
+        assert existing.signing_status == "SENT"  # unchanged

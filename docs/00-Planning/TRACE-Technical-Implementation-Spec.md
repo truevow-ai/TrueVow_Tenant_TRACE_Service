@@ -63,13 +63,73 @@ Supabase provides a local development stack via `supabase start` (Docker-based l
 
 For Fly.io local emulation, use `fly proxy` or run the FastAPI app directly with `uvicorn app.main:app --reload` against the local Supabase instance. No Fly.io-specific local emulator is needed.
 
-For deepdoctection + DocTr local testing: use a small set of de-identified test PDFs (no real PHI) and run `ANALYZER.analyze()` locally. All processing is on-device — no external API calls. Confirm that no network calls are made during OCR processing by running with network disabled as part of the air-gap verification in Phase 1D acceptance criteria.
+For PaddleOCR-VL 1.5 local testing: use a small set of de-identified test PDFs (no real PHI) and run `PaddleOCR().ocr()` locally. All processing is on-device — no external API calls. Confirm that no network calls are made during OCR processing by running with network disabled as part of the air-gap verification in Phase 1D acceptance criteria.
 
 **Anything else not specified**
 
 If you encounter an engineering choice not covered by the PRD, this spec, or the agent discretion categories above — flag it in a comment in the code (`# AGENT CHOICE: [description] — flagged for review`) and proceed with the most conservative option. Do not block progress on undocumented micro-decisions. Flag, proceed, review in the next check-in.
 
-**Environment Variable Reference**
+**AuthContext abstraction — consume @truevow/auth-client, never raw Clerk objects**
+
+Clerk is the platform-wide authentication standard across all TrueVow products and domains. TRACE does not implement its own Clerk integration — it consumes the shared `@truevow/auth-client` library (`ClerkWrapper`) that every TrueVow service imports. Do not import `@clerk/nextjs` or `@clerk/backend` directly in TRACE code.
+
+Every TRACE service receives authentication context through a normalized `AuthContext` object populated by the ClerkWrapper. This abstraction exists for three reasons: TRACE services are testable without a live Clerk instance (mock `AuthContext` directly), function intent is readable without knowing Clerk's JWT schema, and any future changes to custom claims are isolated to a single adapter file.
+
+```python
+# app/middleware/auth_context.py
+from dataclasses import dataclass
+from uuid import UUID
+from fastapi import HTTPException, Request
+
+@dataclass(frozen=True)
+class AuthContext:
+    """
+    Normalized auth context. Populated from Clerk JWT via @truevow/auth-client.
+    All TRACE services consume this — never raw Clerk objects or JWT fields directly.
+    """
+    user_id: UUID
+    firm_id: UUID
+    role: str          # "attorney" | "paralegal" | "admin"
+    permissions: list[str]
+
+async def get_auth_context(request: Request) -> AuthContext:
+    """
+    Extracts normalized AuthContext from the validated Clerk JWT.
+    The ClerkWrapper (shared-libraries/auth-client) handles JWT verification.
+    This function only extracts the claims TRACE cares about.
+    """
+    clerk_payload = request.state.clerk_payload  # set by ClerkWrapper middleware
+    if not clerk_payload:
+        raise HTTPException(401, "Missing or invalid session token")
+
+    firm_id_str = clerk_payload.get("org_id") or clerk_payload.get("firm_id")
+    if not firm_id_str:
+        raise HTTPException(
+            403,
+            "Your account is not associated with a firm. "
+            "Contact support@truevow.law"
+        )
+
+    return AuthContext(
+        user_id=UUID(clerk_payload["sub"]),
+        firm_id=UUID(firm_id_str),
+        role=clerk_payload.get("role", "attorney"),
+        permissions=clerk_payload.get("permissions", []),
+    )
+```
+
+**OpenMed version target: 1.8.x**
+
+Pin OpenMed to version 1.8.x. OpenMed 1.8.0 is installed and in production. Do not upgrade to 1.9.x+ without reviewing release notes for breaking changes to the `deid_text()` and `analyze_text()` interfaces.
+
+```
+# requirements.txt
+openmed>=1.7.0,<1.9.0
+```
+
+Note: Phase 1C delivered OpenMed 1.8.0 with regex-based provider extraction (`extraction_source="INTAKE_REGEX"`). The OpenMed transformer NER pipeline (`extraction_source="INTAKE_NER"`) is Phase 1D scope. Regex-extracted candidates must never surface as CONFIRMED — cap at LIKELY_MATCH. See assign_confidence_label() in provider_extraction_service.py.
+
+**Environment variable reference** (additions from ChatGPT review, July 2026):
 
 All environment variables required by TRACE. Set via `fly secrets set` for production. Set in `.env.local` for local development (never commit). The `.env.example` file in the repo root lists all keys with placeholder values and descriptions.
 
@@ -81,8 +141,7 @@ All environment variables required by TRACE. Set via `fly secrets set` for produ
 | `DOCUSEAL_SIGNING_LINK_EXPIRY_DAYS` | No | DocuSeal signing | Days before signing link expires (default: 7) |
 | `SUPABASE_URL` | Yes | All | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | All | Service role key — never exposed to browser, server-side only |
-| `CLERK_SECRET_KEY` | Yes | Auth middleware | Clerk secret key (App 3 "TrueVow-Tenants") for JWT validation |
-| `CLERK_PUBLISHABLE_KEY` | No | Frontend auth | Clerk publishable key — client-side only, no secret |
+| `SUPABASE_ANON_KEY` | Yes | Frontend auth | Anon key for client-side Supabase queries — never used server-side for auth |
 | `FAX_PROVIDER` | Yes | FaxService | `faxplus` or `documo` — set after vendor decision gate in Phase 1B |
 | `FAX_API_KEY` | Yes | FaxService | Selected vendor API key |
 | `FAX_INBOUND_NUMBER` | Yes | FaxService | TRACE dedicated inbound fax number for receiving records |
@@ -93,6 +152,10 @@ All environment variables required by TRACE. Set via `fly secrets set` for produ
 | `OPENMED_MODEL_BASE` | Yes | NLP jobs | Local path to downloaded OpenMed models (`/models/openmed`) |
 | `NPI_REGISTRY_BASE_URL` | Yes | Provider extraction | CMS NPI Registry API base URL (`https://npiregistry.cms.hhs.gov/api/`) |
 | `PHI_ENCRYPTION_KEY_ID` | Yes | PHI store | pgcrypto key reference for column-level encryption — managed via Supabase key management |
+| `NLP_PROVIDER_BACKEND` | Yes | NLP jobs | `openmed` — explicit, never inferred. Pin to openmed for Phase 1C |
+| `NLP_LONG_CONTEXT_BACKEND` | Yes | Phase 1D NLP | `disabled` in Phase 1C. Set to `bioclinical_modernbert` in Phase 1D when cross-record flag detection is built |
+| `LLM_BACKEND` | Yes | LLM jobs | `disabled` in Phase 1C. No LLM until Phase 1D billing reconciliation |
+| `LLM_PHI_ALLOWED` | Yes | LLM jobs | `false` in all non-production environments. `true` only when LLM provider BAA is confirmed and active |
 | `ENVIRONMENT` | Yes | All | `development`, `staging`, or `production` — guards prevent real PHI processing outside production |
 | `LOG_LEVEL` | No | All | `DEBUG` in development, `INFO` in production — never log PHI values at any level |
 
@@ -268,19 +331,37 @@ Based on Supabase's shared responsibility model documentation (updated July 9, 2
 
 Engineering lead must confirm all 11 items checked before the Phase 1A acceptance criteria are evaluated. This checklist is included in the Phase 1A acceptance criteria section below.
 
-**OCR: deepdoctection with DocTr backend (self-hosted, air-gapped) [IMPLEMENTATION CHOICE — confirmed by agent, verified Apache-2.0]**
+**OCR: PaddleOCR-VL 1.5 + Docling (self-hosted, air-gapped) [IMPLEMENTATION CHOICE — updated July 2026]**
 
-deepdoctection is a Python document AI framework that orchestrates layout analysis, OCR, and document classification using deep learning models. It supports multiple OCR backends — Tesseract, DocTr, and AWS Textract. For TRACE's air-gapped self-hosted deployment, use **DocTr** as the OCR backend within deepdoctection. DocTr is a deep-learning OCR engine (Apache-2.0, TensorFlow and PyTorch implementations available) that runs entirely on local hardware with no external API calls.
+deepdoctection + DocTr was the original Tier 1B OCR engine. It is replaced by PaddleOCR-VL 1.5 (released January 2026) which achieves 94.5% on OmniDocBench, supports 109 languages, installs cleanly via a single pip install, and runs on CPU with no GPU requirement. The deepdoctection dependency chain caused hours of version conflict resolution and is eliminated entirely.
 
-This eliminates the AWS Textract dependency entirely: no AWS account, no BAA requirement for OCR, no per-page costs, no data leaving the infrastructure boundary.
+**Four-tier OCR routing:**
+
+| Tier | Tool | Document type | Notes |
+|------|------|--------------|-------|
+| 0 | pypdf | Digital PDFs with embedded text | Free, instant, 100% accurate on typed text |
+| 1A | Docling | Digital-born PDFs without text layer | VLM-based, structure-aware, 30x faster than OCR |
+| 1B | PaddleOCR-VL 1.5 | Scanned, faxed, handwritten | 94.5% OmniDocBench, 109 languages, self-hosted |
+| 2 | Mistral OCR API | Pages where PaddleOCR-VL < 80% confidence | Cloud, only if Tier 1B insufficient |
+
+All tiers except Mistral OCR run inside the Fly.io HIPAA boundary. No BAA needed for Tiers 0–1B. Mistral OCR Tier 2 requires BAA evaluation before activation.
 
 ```python
-# ocr_service.py — deepdoctection with DocTr backend
-import deepdoctection as dd
+# requirements.txt — complete OCR stack
+numpy<2
+paddlepaddle>=2.6.0
+paddleocr>=2.7.0
+docling
+openmed>=1.7.0,<1.9.0
+```
+
+```python
+# ocr_service.py — PaddleOCR-VL 1.5 backend
+from paddleocr import PaddleOCR
 
 def build_analyzer():
     """
-    Build the deepdoctection analyzer pipeline with DocTr OCR.
+    Build the PaddleOCR-VL pipeline.
     Call once at startup — not per document.
     DocTr runs locally; no external API calls.
     """
@@ -294,7 +375,7 @@ ANALYZER = build_analyzer()  # module-level singleton
 
 def process_document(pdf_bytes: bytes) -> dict:
     """
-    Submit a PDF to the deepdoctection pipeline.
+    Submit document bytes to PaddleOCR-VL pipeline.
     Returns structured extraction: pages, text blocks, tables,
     per-block confidence scores, and page-level layout.
     Raises ValueError if mean page confidence below threshold.
@@ -317,11 +398,11 @@ def process_document(pdf_bytes: bytes) -> dict:
 
 **Accuracy note vs Textract:**
 
-deepdoctection + DocTr achieves strong results on digital PDFs (equivalent to Textract on clean documents). On poor-quality handwritten clinical notes it performs below Textract's accuracy. This does not change the PRD accuracy requirement — pages below 80% confidence are still flagged for attorney manual review regardless of OCR engine. The flagging threshold compensates for the accuracy difference. If early access data shows unacceptably high flag rates on handwritten notes, the spec permits swapping the OCR backend to Textract within deepdoctection's architecture by changing a single config line — no job code changes required.
+PaddleOCR-VL 1.5 achieves 94.5% on OmniDocBench. Pages below 80% confidence are flagged for attorney manual review. If accuracy on handwritten notes is insufficient, activate Mistral OCR Tier 2 via OCR_CLOUD_BACKEND=mistral_api.
 
 **Supabase Storage interaction with OCR:**
 
-The OCR job retrieves document bytes from Supabase Storage, processes them locally through deepdoctection + DocTr, and stores the structured extraction output (JSON) back to Supabase Storage alongside the original document. Document bytes are never sent to any external service.
+The OCR job retrieves document bytes from Supabase Storage, processes them locally through PaddleOCR-VL 1.5, and stores the structured extraction output (JSON) back to Supabase Storage alongside the original document. Document bytes are never sent to any external service.
 
 **Cloud Fax: Fax.Plus Enterprise OR Documo [IMPLEMENTATION CHOICE — vendor locked before Phase 1C]**
 
@@ -431,7 +512,7 @@ def extract_clinical_entities(redacted_text: str) -> dict:
 **Processing sequence with OpenMed:**
 
 ```
-Raw OCR text (from deepdoctection)
+Raw OCR text (from PaddleOCR-VL)
     ↓
 OpenMed Nemotron Privacy Filter (deid_text)
     → redacted_text (PHI replaced with [NAME], [DATE], [ADDRESS] etc.)
@@ -493,9 +574,11 @@ Reason: The split-panel QA interface (PRD Section 5.6.1a) requires real-time sta
 
 Reason: PDF.js renders PDFs directly in the browser without sending documents to an external service. It supports page-level navigation, zoom, and annotation. It runs entirely client-side — the actual document bytes are fetched directly from Supabase Storage using a 15-minute signed URL. No document content passes through the Fly.io application server. The application server generates the signed URL and returns it to the browser; the browser fetches the document bytes directly from Supabase Storage. This is the correct HIPAA data flow for document display.
 
-**Authentication: Auth0 with MFA enforcement**
+**Authentication: Clerk via @truevow/auth-client [DECISION LOCKED]**
 
-Reason: HIPAA technical safeguard requirement — unique user IDs and MFA for all portal access. Auth0 provides MFA enforcement, session management, and audit logging. All portal routes require a valid Auth0 session token. Do not implement custom authentication.
+Reason: Clerk is the platform-wide authentication standard across all TrueVow products and domains (PLATFORM_OPERATORS, SALES_SUPPORT, TENANTS). The shared `@truevow/auth-client` library wraps Clerk and provides the `ClerkWrapper` that all services import. TRACE uses this shared library — it does not implement its own Clerk integration. HIPAA technical safeguard requirement for unique user IDs and MFA is met via Clerk's MFA enforcement. All portal routes require a valid Clerk session token validated by the ClerkWrapper.
+
+Do not import `@clerk/nextjs`, `@clerk/backend`, or any Clerk package directly in TRACE. Import from `@truevow/auth-client` only. Do not implement custom authentication.
 
 **Infrastructure: Fly.io [IMPLEMENTATION CHOICE — confirmed stack]**
 
@@ -515,7 +598,7 @@ Application-level audit logging pattern:
 # audit_middleware.py — FastAPI middleware
 # Every request writes to audit_log before returning response
 async def audit_middleware(request: Request, call_next):
-    actor_id = get_actor_id_from_jwt(request)  # from Clerk JWT
+    actor_id = get_actor_id_from_jwt(request)  # from Clerk JWT via AuthContext (ClerkWrapper)
     response = await call_next(request)
     await db.execute(
         """
@@ -582,34 +665,19 @@ Apply the same decision protocol used for fax vendors to any vendor where actual
 
 ---
 
-**VENDOR 3 — Clerk (Authentication) [DECIDED — ADR-000 July 8, 2026]**
-
-Clerk is the platform standard across all TrueVow services. ADR-000 Decision #1 confirmed Clerk over Auth0. The Auth0 Enterprise pricing (custom, $500–$2,000+/month) was the largest unknown line item. Clerk eliminates that risk and is the existing platform standard for INTAKE, SETTLE, and all tenant services. Clerk BAA should be pre-existing for the TrueVow-Tenants app — verify before production go-live per ADR-001 §22.
-
-This section retained as historical record of the Auth0 evaluation that drove the decision.
-
-**VENDOR 3a — Auth0 (Evaluated and Rejected)**
+**VENDOR 3 — Clerk (Authentication)**
 
 | Item | Status |
 |------|--------|
-| BAA available | Yes — Enterprise plan only via sales-assisted contract |
-| BAA process | Contact Auth0 sales/legal — not self-service. Enterprise agreement required |
+| BAA available | Yes — via enterprise agreement. Referenced in TRACE failover runbook. |
+| BAA process | Confirm Clerk BAA is active for the TrueVow organization before production PHI. Check existing enterprise agreement — this may already be in place platform-wide. |
 | SOC 2 Type II | Yes |
-| HIPAA plan requirement | Enterprise plan — custom pricing, no self-serve |
-| Published HIPAA price | **Not published — custom Enterprise pricing only.** Market reports indicate $1,000–$5,000+/month for small enterprise depending on MAU count and features |
-| Hidden cost risks | Enterprise riders, dedicated support minimums, MAU overage rates, private cloud add-ons |
-| Action required | Engage Auth0 sales before Phase 1A. Request BAA eligibility confirmation. Get enterprise quote for expected MAU volume (attorney portal users — likely 50–500 MAUs at early access). Document actual quote before committing |
-| Key constraint | Self-service plans (Free, Essentials, Professional) do not include BAA and must not be used for PHI. The use of personal health information in Okta/Auth0 is strictly prohibited except in eligible services and only under a valid BAA |
+| HIPAA plan requirement | Enterprise agreement required |
+| Published HIPAA price | Custom — verify current agreement covers TRACE as a new product |
+| Action required | Confirm existing Clerk enterprise BAA explicitly covers TRACE before production go-live. If not, extend the agreement. |
+| Key constraint | Do not use Clerk directly in TRACE code — import from `@truevow/auth-client` only. Platform operators (non-firm-scoped) must not access firm-scoped TRACE data. The ClerkWrapper handles domain separation. |
 
-**⚠ Cost risk: Auth0 Enterprise pricing is a significant unknown. For TRACE early access with 50–200 attorney MAUs, actual cost could be $500–$2,000/month. Before committing to Auth0, evaluate alternatives:**
-
-| Alternative | BAA | HIPAA price | Notes |
-|------------|-----|------------|-------|
-| Keycloak (self-hosted) | Not needed (self-hosted) | $0 licensing + infra cost | Open-source, Red Hat maintained, full HIPAA control. Engineering overhead to operate |
-| Clerk | Contact sales | Custom | Developer-friendly, healthcare tier available |
-| AWS Cognito (via Amplify) | AWS BAA covers Cognito | ~$0.0055/MAU/month | Very low cost for small MAU counts, AWS BAA already in place if Textract is used |
-
-**If Auth0 enterprise quote exceeds $500/month at early access MAU volume, evaluate AWS Cognito as a zero-architecture-impact alternative — the authentication interface is standardized (JWT + OAuth2) and the application layer does not change.**
+**Verdict: Clerk is already the platform standard. Verify BAA coverage extends to TRACE before production. No new vendor relationship needed.**
 
 ---
 
@@ -640,12 +708,12 @@ This section retained as historical record of the Auth0 evaluation that drove th
 | SOC 2 Type II | Yes — AWS has multiple compliance certifications |
 | HIPAA plan requirement | Business Support plan minimum (~$100/month or 10% of monthly AWS spend, whichever is higher) |
 | Published HIPAA price | No Textract-specific HIPAA add-on. **Business Support plan is the cost.** Textract pricing: $1.50/1,000 pages (document text detection), $15/1,000 pages (forms and tables analysis) |
-| Hidden cost risks | Business Support plan minimum; data transfer costs for cross-cloud API calls (Fly.io → AWS); consider whether Textract is cost-effective vs. deepdoctection + DocTr at expected volume |
+| Hidden cost risks | Business Support plan minimum; data transfer costs for cross-cloud API calls (Fly.io → AWS); consider whether Textract is cost-effective vs. PaddleOCR-VL 1.5 at expected volume |
 | Estimated TRACE cost | 200 cases × 300 pages average = 60,000 pages/month. At $1.50/1,000 pages = **$90/month in Textract fees** + Business Support plan minimum ~$100/month = ~$190/month. At 5,000 cases: ~$2,350/month |
-| Key constraint | Textract is the fallback if deepdoctection + DocTr handwriting accuracy spike fails. Not Phase 1 default — deepdoctection + DocTr is the default (no AWS account needed if handwriting spike passes) |
+| Key constraint | Textract is the fallback if PaddleOCR-VL 1.5 handwriting accuracy spike fails. Not Phase 1 default — PaddleOCR-VL 1.5 is the default (no AWS account needed if handwriting spike passes) |
 | Action required | Only needed if handwriting spike fails and Textract fallback is activated. If activated: execute AWS BAA, enable Business Support plan, confirm Textract is in the list of HIPAA-eligible services for the account |
 
-**Verdict: Only relevant as a fallback. If deepdoctection + DocTr passes the handwriting spike, AWS account for Textract is not required and this cost does not apply.**
+**Verdict: Only relevant as a fallback. If PaddleOCR-VL 1.5 passes the handwriting spike, AWS account for Textract is not required and this cost does not apply.**
 
 ---
 
@@ -664,7 +732,7 @@ This section retained as historical record of the Auth0 evaluation that drove th
 
 ---
 
-**VENDOR 7 — deepdoctection + DocTr (OCR — self-hosted)**
+**VENDOR 7 — PaddleOCR-VL 1.5 (OCR — self-hosted)**
 
 | Item | Status |
 |------|--------|
@@ -673,8 +741,8 @@ This section retained as historical record of the Auth0 evaluation that drove th
 | HIPAA cost | $0 — no external API calls, no vendor BAA needed |
 | License | Apache 2.0 — free for commercial use |
 | Hidden cost risks | Fly.io compute cost for running the OCR pipeline (CPU-intensive); model storage costs |
-| Estimated compute cost | deepdoctection with DocTr is CPU-intensive. Estimate 1–5 CPU-seconds per page. At 60,000 pages/month × 3 CPU-seconds = 50 CPU-hours/month on Fly.io. At ~$0.02/CPU-hour: **~$1/month in compute**. Actual cost depends on machine sizing — benchmark during Phase 1D |
-| Action required | No BAA action. Include deepdoctection + DocTr in the Fly.io HIPAA security risk assessment as a data processing component within the HIPAA boundary |
+| Estimated compute cost | PaddleOCR-VL 1.5 is CPU-intensive. Estimate 1–5 CPU-seconds per page. At 60,000 pages/month × 3 CPU-seconds = 50 CPU-hours/month on Fly.io. At ~$0.02/CPU-hour: **~$1/month in compute**. Actual cost depends on machine sizing — benchmark during Phase 1D |
+| Action required | No BAA action. Include PaddleOCR-VL 1.5 in the Fly.io HIPAA security risk assessment as a data processing component within the HIPAA boundary |
 
 **Verdict: Zero compliance overhead. All costs are compute costs within the Fly.io billing relationship already established.**
 
@@ -719,16 +787,14 @@ Minimum monthly cost to operate TRACE in a HIPAA-compliant configuration at earl
 |--------|--------------------------|-------|
 | Fly.io | $99 | Compliance Package add-on |
 | Supabase | ~$375 | Team Plan $25 + HIPAA add-on $350 |
-| Auth0 | Unknown — get quote | Enterprise required; $500–$2,000+ estimated |
+| Clerk | Verify existing BAA covers TRACE | Platform enterprise agreement — confirm it extends to TRACE before production |
 | Azure OpenAI GPT-4o-mini | ~$0.50 | Token costs only; BAA automatic |
-| AWS Textract | $0 (fallback only) | Only if deepdoctection + DocTr fails handwriting spike |
-| Fax.Plus or Documo | $100–$200 | Get real enterprise quotes per decision protocol |
-| deepdoctection + DocTr | ~$1 | Compute only, no compliance cost |
+| AWS Textract | $0 (fallback only) | Only if PaddleOCR-VL 1.5 fails handwriting spike |
+| Documo | $25–125/mo | Quality-first fax selection |
+| PaddleOCR-VL 1.5 | ~$1 | Compute only, no compliance cost |
 | OpenMed | ~$2 | Compute only, no compliance cost |
-| **Minimum confirmed** | **~$577/month** | Excluding Auth0 enterprise quote |
-| **Estimated with Auth0** | **~$1,100–$2,800/month** | Depending on Auth0 enterprise pricing |
-
-**The Auth0 line item is the largest unknown and the highest risk.** Before Phase 1A begins, the Auth0 enterprise quote must be obtained. If Auth0 Enterprise pricing at early access MAU volume exceeds $500/month, evaluate AWS Cognito as a zero-architecture-impact alternative — the JWT + OAuth2 interface is identical and the application layer does not change. AWS Cognito pricing for 200 MAUs is approximately $0 (within free tier), scaling to $1.10/month for 1,000 MAUs. If the AWS BAA is already in place for Textract fallback, Cognito is covered with no additional BAA action.
+| DocuSeal (self-hosted) | ~$5–10 | Compute only, no BAA needed |
+| **Total confirmed** | **~$507–612/month + Clerk** | Clerk cost shared across platform — verify existing agreement covers TRACE |
 
 ### 2.3 What Not to Use [DECISION LOCKED]
 
@@ -741,7 +807,7 @@ These are explicitly prohibited for TRACE Phase 1:
 - **No LLM API from any provider without a signed HIPAA BAA** — this rule supersedes any cost or performance argument. BAA first, then evaluate
 - **No Docker deployment to attorney machines** — TRACE is cloud-hosted SaaS only
 - **No Streamlit** — not appropriate for a production HIPAA-compliant multi-tenant SaaS application
-- **No Docspell** — replaced by deepdoctection + DocTr for document processing
+- **No Docspell** — replaced by PaddleOCR-VL 1.5 for document processing
 - **No Orthanc / DICOM handling** — not in Phase 1 scope (added in Phase 4)
 - **No OHIF Viewer** — not in Phase 1 scope
 - **No flat file storage of case data** — all case data in PostgreSQL
@@ -852,12 +918,55 @@ CREATE TABLE documents (
     s3_bucket           VARCHAR(255) NOT NULL,
     s3_key              VARCHAR(1024) NOT NULL,
     document_type       VARCHAR(50),           -- ER/IMAGING/PT/BILLING/PHARMACY/OTHER
+    source              VARCHAR(30) NOT NULL DEFAULT 'ATTORNEY_UPLOAD',
+    sha256_hash         VARCHAR(64),           -- computed after storage, used for dedup
+    original_filename   VARCHAR(255),          -- what the file was named when received, for attorney recognition
+                                               -- NEVER log this field — client filenames sometimes contain PHI
+                                               -- (e.g., "John_Smith_records.pdf", "DOB_1985_xray.pdf")
+                                               -- Store in DB column only. PHIRedactionFilter covers logs but
+                                               -- defense-in-depth: never write original_filename to any log statement
     page_count          INTEGER,
     received_at         TIMESTAMPTZ DEFAULT NOW(),
     ocr_status          VARCHAR(20) DEFAULT 'PENDING',
     ocr_confidence      DECIMAL(5,2),
+    -- OCR routing fields (populated in Phase 1D, nullable in Phase 1C)
+    -- Add now so Phase 1D never needs a migration touching existing records
+    document_type_guess VARCHAR(50),    -- e.g. ER_NOTE, LAB_REPORT, BILLING, IMAGING
+    page_type_guess     VARCHAR(30),    -- TYPED | HANDWRITTEN | MIXED | FORM
+    ocr_route           VARCHAR(30),    -- DOCLING | DOCTR | MISTRAL_LOCAL | LLAMAPARSE
+    ocr_backend         VARCHAR(30),    -- which engine actually ran
+    needs_escalation    BOOLEAN DEFAULT FALSE,  -- true if Tier 1 confidence below threshold
+    source_spans_available BOOLEAN DEFAULT FALSE, -- true when OpenMed source spans are stored
+    quality_flags       TEXT[],                -- LOW_OCR_CONFIDENCE, HANDWRITTEN_NOTE_DETECTED, etc.
     is_duplicate        BOOLEAN DEFAULT FALSE,
-    is_misfiled         BOOLEAN DEFAULT FALSE
+    is_misfiled         BOOLEAN DEFAULT FALSE,
+    CONSTRAINT valid_source CHECK (source IN (
+        'PROVIDER_FAX',
+        'ATTORNEY_UPLOAD',
+        'CLIENT_UPLOAD',
+        'SCAN',
+        'DOCUSEAL_SIGNED',
+        'UNKNOWN'
+    ))
+);
+
+-- Index for O(1) dedup lookup within a case
+CREATE INDEX idx_documents_case_hash ON documents(case_id, sha256_hash)
+WHERE sha256_hash IS NOT NULL;
+
+-- Upload links table — secure expiring upload URLs for client document submission
+-- No client accounts. No authentication. Token-scoped, expiring.
+CREATE TABLE upload_links (
+    token           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_id         UUID NOT NULL REFERENCES cases(case_id) ON DELETE CASCADE,
+    firm_id         UUID NOT NULL,
+    created_by      UUID NOT NULL,        -- attorney Clerk user ID (from @truevow/auth-client)
+    label           TEXT,                 -- shown to client e.g. "Please upload your ER discharge papers"
+    expires_at      TIMESTAMPTZ NOT NULL, -- default NOW() + 48 hours
+    revoked_at      TIMESTAMPTZ,          -- null until attorney revokes early
+    used_at         TIMESTAMPTZ,          -- timestamp of first successful upload
+    upload_count    INTEGER DEFAULT 0,    -- incremented per file uploaded
+    created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE chronology_entries (
@@ -979,7 +1088,7 @@ GRANT SELECT ON cases, providers, documents, chronology_entries, event_nodes TO 
 ```
 
 All endpoints require:
-- Valid Clerk JWT in Authorization header
+- Valid Clerk JWT in Authorization header (validated by ClerkWrapper)
 - Firm ID validated against authenticated user's firm membership
 - Every request logged to audit_log before response is returned
 
@@ -1271,15 +1380,65 @@ POST /api/v1/trace/cases/{case_id}/documents/upload  -- attorney-initiated manua
 **Fax webhook handler:**
 1. Validates webhook signature from Fax.Plus
 2. Downloads received fax PDF from Fax.Plus
-3. Stores in S3 with SSE-KMS encryption
-4. Creates document record in database
-5. Triggers OCR processing job (async)
-6. Writes to audit_log
+3. Computes SHA256 hash of document bytes
+4. Stores in Supabase Storage with SSE-KMS encryption, source='PROVIDER_FAX'
+5. Creates document record in database
+6. Triggers OCR processing job (async)
+7. Triggers deduplication job (async)
+8. Writes to audit_log
 
-**Manual upload handler:**
+**Manual upload handler (attorney):**
 - Accepts PDF only (reject other formats with 415)
 - Max file size 100MB per document, 2GB per case total
+- source='ATTORNEY_UPLOAD'
 - Same processing pipeline as fax receipt
+
+### 4.5a Client Secure Upload Link
+
+Attorney generates a one-time upload link and sends it to the client via text or email. Client uploads on their phone. No client account. No password. No TRACE portal access.
+
+```
+POST /api/v1/trace/cases/{case_id}/upload-link
+  Auth: Clerk JWT via @truevow/auth-client (attorney only)
+  Body: { "expires_hours": 48, "label": "Please upload your ER discharge papers" }
+  Returns: { "upload_url": "https://truevow.law/upload/{token}", "expires_at": "..." }
+
+GET  /upload/{upload_token}
+  Auth: none — public, token-scoped
+  Returns: minimal upload page (no nav, no TRACE branding, firm name + attorney label only)
+
+POST /upload/{upload_token}
+  Auth: none — token validated against upload_links table
+  Body: multipart/form-data, files[]
+  Processing:
+    1. Validate token exists, not expired, not revoked
+    2. Store files in Supabase Storage, source='CLIENT_UPLOAD'
+    3. Create document records
+    4. Trigger OCR + dedup jobs
+    5. Increment upload_links.upload_count, set used_at if first upload
+    6. Notify attorney via portal notification + email
+    7. Return simple success page — no TRACE branding
+  Returns: "Thank you. Your documents have been received by [Firm Name]."
+
+DELETE /api/v1/trace/cases/{case_id}/upload-link/{token}
+  Auth: Clerk JWT via @truevow/auth-client (attorney revokes early)
+  Effect: sets upload_links.revoked_at, link immediately stops accepting uploads
+```
+
+**Token security:**
+- Token is a UUID — 122 bits of entropy, unguessable
+- Expiry enforced server-side — expired tokens return 410 Gone, not 401
+- Revocation enforced server-side — revoked tokens return 410 Gone
+- Token is single-use per document only in that 48-hour window — not rate-limited per document, but the attorney can revoke at any time
+- Token never appears in any log entry — log case_id and upload_link_id only
+
+**Client upload page design requirements:**
+- Works on a phone as the primary device — large tap targets, no hover states
+- Upload area doubles as a camera button on mobile (input type=file accept="image/*,application/pdf" capture=environment)
+- No login prompt, no "create an account," no TRACE logo, no portal navigation
+- Only visible elements: firm name, attorney's label, upload area, submit button
+- After successful submit: "Thank you. Your documents have been received by [Firm Name]." — nothing else
+- The client should not know what software the attorney uses
 
 ### 4.6 Chronology and QA Interface
 
@@ -1365,7 +1524,30 @@ Every page of the PDF export includes the disclaimer:
 
 ### 5.1 Provider Extraction Job
 
-**Trigger:** Fires asynchronously after case initialization.
+**Trigger:** Fires asynchronously after case initialization completes (after DocuSeal webhook confirms signing).
+
+**Critical rule — NPI match is not authorization to fax:**
+
+NPI lookup enriches provider candidates with publicly available information (name, fax number, specialty, address). It does not authorize a fax transmission. A confirmed NPI match means the provider exists in the CMS registry. It does not mean:
+- The attorney's client actually received treatment from this specific provider
+- The fax number in the NPI Registry is current and correct
+- The attorney has reviewed and approved this provider for record requests
+
+The following sequence is mandatory and cannot be short-circuited:
+
+```
+NPI lookup → CANDIDATE created (confidence label assigned)
+                    ↓
+         Attorney reviews provider checklist
+                    ↓
+         Attorney CONFIRMS each provider (Checkpoint 1)
+                    ↓
+         Attorney approves outgoing request list (Checkpoint 2)
+                    ↓
+         Fax transmitted
+```
+
+No fax may be sent based on NPI lookup alone. Ever. The Checkpoint 1 gate at `POST /cases/{id}/providers/confirm` and the Checkpoint 2 gate at `POST /cases/{id}/requests/send` enforce this in code. The rule is also enforced by the `hipaa_auth_status = SIGNED` check at Checkpoint 2 — the signed HIPAA authorization names specific providers the client authorizes records requests to. Sending a fax to a provider not confirmed by the attorney is a potential HIPAA violation regardless of NPI match quality.
 
 **Steps:**
 1. Load Benjamin intake record JSON for the case
@@ -1388,13 +1570,102 @@ Every page of the PDF export includes the disclaimer:
 - LOW: implied provider ("the hospital", "my doctor") with no identifying information
 - LOW-confidence providers are shown with a warning label in the provider confirmation checklist
 
+### 5.1b Deduplication Job
+
+**Trigger:** Fires immediately after a document is stored and its SHA256 hash is computed. Runs for every document regardless of source — fax, attorney upload, client upload, or DocuSeal signed document.
+
+**Steps:**
+
+```python
+async def run_dedup_check(document_id: UUID, case_id: UUID) -> None:
+    """
+    Exact duplicate detection via SHA256 hash comparison within the same case.
+    Near-duplicate detection (perceptual hashing for same content / different scan quality)
+    is deferred to Phase 2 — too complex for Phase 1 early access scale.
+
+    Never auto-deletes. Always requires attorney confirmation before removal.
+    Tracks provenance so attorney can see which copy came from which source.
+    """
+    doc = await db.get_document(document_id)
+
+    if not doc.sha256_hash:
+        # Hash not yet computed — skip, dedup will run after OCR completes
+        logger.warning("Dedup skipped: hash not available", extra={"document_id": str(document_id)})
+        return
+
+    # Look for exact match within this case — the index makes this O(1)
+    existing = await db.execute(
+        select(Document)
+        .where(Document.case_id == case_id)
+        .where(Document.sha256_hash == doc.sha256_hash)
+        .where(Document.document_id != document_id)
+        .where(Document.is_duplicate == False)  # only compare against non-duplicate copies
+        .order_by(Document.received_at.asc())   # oldest copy is authoritative
+        .limit(1)
+    )
+
+    if not existing:
+        return  # No duplicate found — do nothing
+
+    # Mark incoming document as duplicate — never auto-delete
+    await db.update_document(document_id, is_duplicate=True)
+
+    # Log with provenance — attorney needs to see both copies and decide
+    await audit_logger.log(
+        actor_type="SYSTEM",
+        action="DUPLICATE_DOCUMENT_DETECTED",
+        resource_type="DOCUMENT",
+        resource_id=document_id,
+        case_id=case_id,
+        firm_id=doc.firm_id,
+        details={
+            "duplicate_of": str(existing.document_id),
+            "original_source": existing.source,
+            "original_received_at": existing.received_at.isoformat(),
+            "duplicate_source": doc.source,
+            # Note: never log document content, file name, or PHI here
+        }
+    )
+
+    # Surface in portal — informational, not urgent, does not block any workflow
+    await notify_portal(
+        firm_id=doc.firm_id,
+        case_id=case_id,
+        notification_type="DUPLICATE_DOCUMENT",
+        message=(
+            f"A duplicate document was detected. "
+            f"Original received from {existing.source} on {existing.received_at.date()}. "
+            f"New copy received from {doc.source}. "
+            f"Review both copies and confirm which to keep."
+        )
+    )
+```
+
+**What deduplication does NOT do:**
+- Does not auto-delete either copy — attorney must confirm
+- Does not flag as priority or block any checkpoint — it is informational
+- Does not run near-duplicate detection (same content, different scan — deferred Phase 2)
+- Does not deduplicate across cases — only within the same case
+
+**Source provenance values and their meaning:**
+
+| Source | What it means |
+|--------|--------------|
+| `PROVIDER_FAX` | Received via inbound fax from healthcare provider |
+| `ATTORNEY_UPLOAD` | Attorney manually uploaded from their device |
+| `CLIENT_UPLOAD` | Client submitted via secure upload link |
+| `SCAN` | Staff scanned physical document and uploaded |
+| `DOCUSEAL_SIGNED` | Signed document returned by DocuSeal webhook |
+
+When a duplicate is detected, the portal shows the attorney both copies with their source labels so they know which is the authoritative provider copy and which is the client's personal copy.
+
 ### 5.2 OCR Processing Job
 
 **Trigger:** Fires asynchronously when a document record is created (fax received or manual upload).
 
 **Steps:**
 1. Retrieve document bytes from Supabase Storage using document.s3_key (storage key)
-2. Submit to deepdoctection analyzer with DocTr OCR backend (`ANALYZER.analyze()`)
+2. Submit to PaddleOCR-VL: `ocr.ocr(document_bytes, cls=True)`
 3. Receive structured page output with text blocks and per-block confidence scores
 4. Evaluate per-page mean confidence scores:
    - Pages with mean confidence below 80%: flag as LOW_CONFIDENCE, mark for attorney manual review
@@ -1405,7 +1676,7 @@ Every page of the PDF export includes the disclaimer:
    - Store redacted_text only in the processing pipeline — raw PHI text is not stored in any intermediary state
    - Encrypt phi_map and store in PHI store alongside the document record
    - Log phi_types_detected to audit_log (entity types only — no values)
-6. Store deepdoctection extraction output (JSON) and redacted page text back to Supabase Storage
+6. Store PaddleOCR-VL extraction output (JSON) and redacted page text back to Supabase Storage
 7. Update document.ocr_status and document.ocr_confidence
 8. If document.ocr_status = COMPLETE: trigger clinical event extraction job with **redacted text only**
 
@@ -1499,7 +1770,7 @@ The billing repo must expose an API endpoint that returns structured billing rec
 1. What is the case identifier in the billing repo? (Is it the TRACE case_id, the intake_record_id, or a separate billing case reference? The mapping must be established.)
 2. What fields does the billing record include? Minimum required: date of service, provider identifier, CPT code, ICD-10 code, billed amount.
 3. Is the billing repo within your HIPAA compliance boundary? (It handles billing PHI — it should be. Confirm before making service calls that include client tokens.)
-4. What authentication does the billing repo API use? (Should use the same Auth0 JWT or a service-to-service token.)
+4. What authentication does the billing repo API use? (Should use the same Clerk service token or a service-to-service token.)
 
 **Integration steps:**
 
@@ -1755,7 +2026,7 @@ Build in this exact order. Do not start a phase before the previous one passes i
 - [ ] PostgreSQL schemas created: all tables from Section 3.1, applied via Alembic migrations
 - [ ] Database roles and permissions applied: Section 3.2
 - [ ] Application-level audit logging middleware confirmed: every API request writes to audit_log with actor_id, timestamp, action, resource_type
-- [ ] Clerk: JWT validation working in FastAPI middleware, MFA enforced on all portal accounts
+- [ ] Clerk via @truevow/auth-client: ClerkWrapper middleware configured, JWT validation working in FastAPI, MFA enforced on all portal accounts, firm_id and role extracted into AuthContext from Clerk JWT claims
 - [ ] FastAPI skeleton: authentication middleware, audit logging middleware, error handling
 - [ ] Supabase Storage: `trace-medical-records` bucket created with private access policy confirmed
 - [ ] OpenMed models downloaded to private model registry on Fly.io volume — `openmed.analyze_text()` returns result with no network calls
@@ -1765,7 +2036,7 @@ Build in this exact order. Do not start a phase before the previous one passes i
 **When ready for production (not now — tracked separately from the build sequence):**
 - [ ] Fly.io: Compliance Package signed via fly.io/dashboard/personal/compliance ($99/month add-on)
 - [ ] Supabase: Team Plan active, HIPAA add-on request submitted and approved, BAA signed ($350/month add-on)
-- [ ] Auth0: Enterprise BAA quote obtained, enterprise agreement signed (quote required before commitment — see Section 2.1 Auth0 note)
+- [ ] **Clerk:** Existing platform enterprise BAA confirmed to cover TRACE. MFA enforcement active for attorney portal accounts. Confirm with TrueVow legal before first real attorney session.
 - [ ] Supabase HIPAA configuration — all 11 items from §12 Q13 confirmed: HIPAA add-on enabled, TRACE project marked High Compliance, MFA enforced on all organization accounts, Point in Time Recovery enabled, SSL Enforcement enabled, Network Restrictions enabled, Postgres connection logging explicitly ON, AI editor data sharing disabled, no Edge Functions in PHI path
 - [ ] Fax vendor BAA executed (per decision protocol — before fax endpoints go to production)
 - [ ] Azure OpenAI: qualifying licensing confirmed (EA/MCA/CSP), BAA coverage verified at Microsoft Service Trust Portal, private endpoints enabled for PHI traffic
@@ -1808,8 +2079,8 @@ A test request to any authenticated API endpoint is logged in audit_log with cor
 
 - [ ] Fax receive webhook processing working (document stored in S3, document record created)
 - [ ] Manual upload endpoint working
-- [ ] **deepdoctection + DocTr handwriting accuracy spike:** Benchmark against minimum 20 pages of de-identified handwritten clinical notes (urgent care notes + chiropractor notes). If mean accuracy below 80%, evaluate Google Document AI fallback — change is one config line in deepdoctection, no job code changes
-- [ ] deepdoctection + DocTr pipeline: `ANALYZER.analyze()` processing a test PDF with no external API calls confirmed
+- [ ] **PaddleOCR-VL 1.5 handwriting accuracy spike:** Benchmark against minimum 20 pages of de-identified handwritten clinical notes (urgent care notes + chiropractor notes). If mean accuracy below 80%, evaluate Google Document AI fallback — activate OCR_CLOUD_BACKEND=mistral_api in Fly.io secrets, no code changes
+- [ ] PaddleOCR-VL 1.5 pipeline: `PaddleOCR().ocr()` processing a test PDF with no external API calls confirmed
 - [ ] OpenMed `deid_text()` running immediately after OCR output confirmed — raw PHI not present in any downstream intermediary state (verified by inspecting job output before chronology write)
 - [ ] OpenMed clinical NER running on de-identified text producing chronology entries with source citations
 - [ ] Gap detection job (Section 5.5) producing TREATMENT_GAP event nodes
@@ -1832,7 +2103,7 @@ A test request to any authenticated API endpoint is logged in audit_log with cor
 - [ ] Billing reconciliation job (Section 5.6) with CPT extraction and prohibited string filter
 - [ ] Prohibited string filter tested: confirm it blocks the prohibited terms list
 
-**Acceptance criteria:** Process a set of 10 real PI medical record PDFs (de-identified before testing) through the full pipeline. deepdoctection + DocTr produces text extraction with per-page confidence scores. OpenMed `deid_text()` runs immediately after OCR — no raw PHI appears in any job output downstream. OpenMed clinical NER produces chronology entries with source citations. At least one treatment gap detected and flagged. All system_description values pass the prohibited string filter without triggering. No network calls made during OCR or NLP processing (air-gap confirmed).
+**Acceptance criteria:** Process a set of 10 real PI medical record PDFs (de-identified before testing) through the full pipeline. PaddleOCR-VL 1.5 produces text extraction with per-page confidence scores. OpenMed `deid_text()` runs immediately after OCR — no raw PHI appears in any job output downstream. OpenMed clinical NER produces chronology entries with source citations. At least one treatment gap detected and flagged. All system_description values pass the prohibited string filter without triggering. No network calls made during OCR or NLP processing (air-gap confirmed).
 
 ### Phase 1E — QA Interface and Approval (Weeks 8–10)
 
@@ -1909,7 +2180,7 @@ All items must pass before the first real attorney BAA is signed or the first re
 
 - [ ] **Fly.io:** Compliance Package signed at fly.io/dashboard/personal/compliance. $99/month add-on active on production organization
 - [ ] **Supabase:** Team Plan active, HIPAA add-on approved and enabled, BAA signed and on file (~$375/month). TRACE production project marked as HIPAA / High Compliance
-- [ ] **Auth0:** Enterprise BAA quote reviewed and accepted, enterprise agreement signed. Confirm quote was obtained before commitment
+- [ ] **Clerk:** Platform enterprise BAA confirmed to explicitly cover TRACE. MFA enforced on all attorney portal accounts. Verified by TrueVow compliance team.
 - [ ] **Fax vendor (Fax.Plus Enterprise or Documo):** BAA executed with selected vendor. Confirm HIPAA mode / Advanced Security Controls ON. If Fax.Plus: confirmed on Enterprise plan only
 - [ ] **Azure OpenAI:** Qualifying licensing confirmed (EA, MCA, or CSP — not pay-as-you-go consumer account). BAA coverage verified at Microsoft Service Trust Portal. Private endpoints and VNet enabled for PHI traffic
 
@@ -1931,8 +2202,8 @@ All items must pass before the first real attorney BAA is signed or the first re
 
 - [ ] Supabase Storage bucket `trace-medical-records`: private access policy confirmed, no public access, HIPAA BAA active
 - [ ] All application secrets in Fly.io secrets (`fly secrets set`) — not in `fly.toml`, Dockerfiles, or source code. Verify with `fly secrets list` — no secrets in git history
-- [ ] All API endpoints require valid Clerk JWT — return 401 without one
-- [ ] MFA enforced for all attorney portal accounts (Auth0) — cannot be disabled per-user
+- [ ] All API endpoints require valid Clerk JWT (validated by ClerkWrapper) — return 401 without one
+- [ ] MFA enforced for all attorney portal accounts (Clerk) — cannot be disabled per-user
 - [ ] Audit log: application role has INSERT only on audit_log — no SELECT, UPDATE, or DELETE
 - [ ] PHI store: accessible only via `trace_phi_role` — not `trace_app_role` by default
 - [ ] Supabase signed URL expiry confirmed at 900 seconds maximum — no wildcard permissions

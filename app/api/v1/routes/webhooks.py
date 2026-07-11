@@ -1,8 +1,8 @@
-"""Fax delivery-status webhook (Fax.Plus callback).
+"""Fax delivery-status webhook (Documo / fax vendor callback).
 
-Machine-to-machine endpoint (no Clerk session). Optionally protected by a shared
-secret header. Updates the matching ``record_requests`` row and writes an audit
-entry. No PHI is accepted or returned.
+Machine-to-machine endpoint (no Clerk session). Protected by a shared
+secret header. Updates the matching ``record_requests`` row and the
+provider's retrieval_status. No PHI is accepted or returned.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.core.audit import write_audit
 from app.core.config import settings
 from app.core.database import async_session_maker
+from app.models.provider import Provider
 from app.models.record_request import RecordRequest
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -23,8 +24,10 @@ _STATUS_MAP = {
     "success": "DELIVERED",
     "delivered": "DELIVERED",
     "sent": "DELIVERED",
+    "completed": "DELIVERED",
     "failed": "FAILED",
     "error": "FAILED",
+    "rejected": "FAILED",
 }
 
 
@@ -59,6 +62,16 @@ async def fax_status(
         if mapped == "DELIVERED":
             row.confirmed_at = datetime.datetime.now(datetime.timezone.utc)
         case_id = row.case_id
+        # Update provider retrieval_status
+        provider_result = await session.execute(
+            select(Provider).where(Provider.provider_id == row.provider_id)
+        )
+        provider = provider_result.scalar_one_or_none()
+        if provider:
+            if mapped == "DELIVERED":
+                provider.retrieval_status = "REQUESTED"
+            elif mapped == "FAILED":
+                provider.retrieval_status = "PENDING"
         await session.commit()
 
     await write_audit(

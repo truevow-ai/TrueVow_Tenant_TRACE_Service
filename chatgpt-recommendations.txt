@@ -1,0 +1,643 @@
+My fiduciary answer: **TRACE architecture is good enough to build, but not “as-is.”** The architecture should be revised once more to lock in a few better tool decisions before Phase 1C/1D work starts.
+
+The largest changes are:
+
+```text id="75g2lx"
+1. Keep DocuSeal.
+2. Keep Clerk for now, but document Supabase Auth as the later consolidation path.
+3. Reopen fax vendor selection: evaluate SRFax, Documo, iFax, and Fax.Plus.
+4. Do not self-host DeepSeek V4 Pro for early TRACE. Use Azure OpenAI / HIPAA-covered LLM endpoint later if an LLM is truly needed.
+5. Keep OpenMed for Phase 1C, but target OpenMed 1.7.x interfaces.
+6. Keep DocTr/deepdoctection spike, but add Mistral OCR 4 self-hosted as preferred Tier 2 if feasible.
+7. Add Docling as Phase 1D digital-PDF route.
+8. Add BioClinical ModernBERT as Phase 1D long-context backend candidate, not Phase 1C.
+```
+
+Your two attached tool audits already reach a similar conclusion: DocuSeal remains the best signing choice, Clerk should stay for now, fax vendor selection must expand, DeepSeek V4 Pro self-hosting is impractical at early volume, Supabase/Fly stay, and Docling/Mistral/BioClinical ModernBERT should be staged into Phase 1D rather than Phase 1C.  The OCR/NLP-specific audit also correctly says the key pattern is **not replacement**, but routing: OpenMed for short clinical/provider extraction, BioClinical ModernBERT for long-context tasks later, Docling for digital PDFs later, DocTr/Mistral for handwritten or messy scans. 
+
+# Final architecture decision
+
+```text id="hhp6ns"
+Do not pause TRACE.
+Do not redesign from scratch.
+Do not add a huge new tool stack.
+
+Proceed, but revise the tool architecture before coding Phase 1C.
+```
+
+The adopted TRACE architecture is fundamentally sound. The changes needed are **vendor selection and routing refinements**, not a product rewrite.
+
+---
+
+# 1. E-signature: DocuSeal stays
+
+## Current choice
+
+```text id="v6d07e"
+DocuSeal self-hosted or HIPAA-enabled DocuSeal Cloud
+```
+
+## Alternatives checked
+
+```text id="dflh4i"
+Documenso
+OpenSign
+SignWell / commercial cloud e-sign tools
+DocuSign
+PandaDoc
+```
+
+## Research finding
+
+DocuSeal’s own security page says HIPAA compliance is available for cloud services but is **not enabled by default**; customers must contact support, sign a BAA, and enter the HIPAA-compliant eSignature Cloud. ([DocuSeal][1]) DocuSeal also publicly positions a HIPAA-compliant eSignature solution for healthcare. ([DocuSeal][2])
+
+Documenso is now more credible than before: its own blog says Documenso is HIPAA compliant, and its product page emphasizes API-driven signature workflows. ([documenso.com][3]) OpenSign has self-hosting/API documentation, but I did not find stronger HIPAA/BAA positioning than DocuSeal/Documenso in this pass. ([docs.opensignlabs.com][4])
+
+## Recommendation
+
+```text id="6mxppl"
+Stay with DocuSeal for Phase 1B/1C.
+```
+
+Why:
+
+```text id="xdkysc"
+- already planned
+- API-ready
+- mobile signing experience is good
+- HIPAA path exists
+- self-host path exists
+- switching now creates risk without enough upside
+```
+
+## Architecture change
+
+Add this rule:
+
+```text id="6bgvvr"
+DocuSeal may be used only after one of these is true:
+1. DocuSeal Cloud HIPAA account + BAA confirmed, or
+2. DocuSeal self-hosted inside TrueVow’s signed BAA infrastructure.
+```
+
+Do not send real PHI/signature packets through ordinary non-HIPAA DocuSeal Cloud.
+
+---
+
+# 2. Authentication: keep Clerk now, plan Supabase Auth later
+
+## Current choice
+
+```text id="6o5s5s"
+Clerk
+```
+
+## Alternatives checked
+
+```text id="3coyh8"
+Supabase Auth
+Auth0
+WorkOS
+Custom auth
+```
+
+## Research finding
+
+Clerk had multiple public postmortems in 2026, including a February 10 DNS provider outage, a February 19 system outage, and a March 10 service outage. ([Clerk][5]) That is a real reliability concern for platform auth.
+
+Supabase Auth is now more attractive because Supabase Auth Hooks can add custom JWT claims, including roles/permissions/metadata. ([Supabase][6]) Since TRACE already uses Supabase, this makes Supabase Auth a natural future consolidation path.
+
+Auth0 remains credible for healthcare/regulated identity, but a community answer says BAA availability is enterprise-only rather than free/self-service tiers. ([Auth0][7])
+
+## Recommendation
+
+```text id="z9shy5"
+Keep Clerk for now.
+Do not migrate auth during TRACE Phase 1C.
+Document Supabase Auth as Phase 3 platform consolidation.
+```
+
+Why:
+
+```text id="u5v46w"
+- Clerk is already integrated
+- early access attorney volume is small
+- auth migration would delay TRACE
+- Supabase Auth is attractive later because it reduces vendor count
+```
+
+## Architecture change
+
+Add this to ADR:
+
+```text id="zf9n8w"
+Auth abstraction must not assume Clerk forever.
+Every TRACE service should consume firm_id, user_id, role, and permissions from a normalized AuthContext, not directly from Clerk-specific objects.
+```
+
+That keeps future Supabase Auth migration cheap.
+
+---
+
+# 3. Fax: revise vendor decision before build
+
+## Current planned vendors
+
+```text id="zppzw1"
+Fax.Plus or Documo
+```
+
+## Better set
+
+```text id="pmuxlq"
+SRFax
+Documo
+iFax
+Fax.Plus
+```
+
+## Research finding
+
+Fax.Plus offers HIPAA fax API/webhooks and says APIs/webhooks can integrate with EHR systems to send, receive, and route PHI while maintaining HIPAA compliance. ([Fax.Plus][8]) But Fax.Plus HIPAA/BAA is tied to Enterprise in public comparisons, making it much more expensive at early TRACE volume. ([Fax.Plus][9])
+
+SRFax has healthcare/HIPAA positioning and is repeatedly described as cheaper for healthcare faxing; FaxRadar lists SRFax from about $12.60/month for 200 pages with REST API and HIPAA/PHIPA positioning. ([FaxRadar][10]) TechRadar also ranks SRFax highly for online faxing and describes it as affordable with send/receive functionality. ([TechRadar][11])
+
+Documo’s public pricing shows API access on business/enterprise tiers, HIPAA compliance, included pages, and additional page fees. ([Documo][12]) Documo also has API docs with webhook support in sandbox and production. ([Documo API Documentation][13])
+
+iFax publicly markets a HIPAA fax API with BAA support, encryption, test key, OpenAPI spec, webhooks, and developer documentation. ([iFax][14]) The caveat: public comparisons say the exact signed-BAA workflow/tier should be confirmed. ([Fax.Plus][15])
+
+## Recommendation
+
+```text id="7tokwj"
+Do not lock Fax.Plus.
+Run a 4-vendor sandbox bake-off:
+SRFax, Documo, iFax, Fax.Plus.
+```
+
+Ranked starting hypothesis:
+
+```text id="u7cmwz"
+1. SRFax — likely best low-cost MVP vendor if API/inbound/status pass.
+2. Documo — best if workflow/inbound/status APIs are materially cleaner.
+3. iFax — strong candidate, but verify BAA tier and API reliability.
+4. Fax.Plus — keep only if Enterprise controls/data residency/SSO justify cost.
+```
+
+## Architecture change
+
+Set accepted values:
+
+```text id="cottsc"
+FAX_PROVIDER=srfax|documo|ifax|faxplus
+```
+
+Do not hardcode vendor assumptions.
+
+---
+
+# 4. Database and storage: Supabase stays
+
+## Current choice
+
+```text id="oyc1x7"
+Supabase Postgres + Supabase Storage
+```
+
+## Alternatives checked
+
+```text id="n12p7u"
+AWS RDS + S3
+Neon + S3
+PlanetScale + object storage
+Firebase/GCP
+Azure Postgres + Blob
+```
+
+## Research finding
+
+Supabase’s HIPAA docs say organizations must have a signed BAA and HIPAA add-on enabled when dealing with PHI. ([Supabase][16]) Supabase also states hosted Supabase has controls to meet HIPAA requirements, while self-hosted HIPAA controls are outside its documentation scope. ([Supabase][17])
+
+## Recommendation
+
+```text id="2pwd54"
+Stay with Supabase.
+```
+
+Why:
+
+```text id="yvi88m"
+- Postgres + Storage + RLS + signed URLs
+- already chosen
+- lower operational burden than AWS primitives
+- good fit for early-stage regulated SaaS
+```
+
+## Architecture change
+
+Do **not** self-host Supabase for HIPAA right now. Use managed Supabase with BAA/HIPAA add-on for PHI workloads.
+
+---
+
+# 5. Hosting: Fly.io stays, but no PHI without BAA
+
+## Current choice
+
+```text id="9n3tg8"
+Fly.io
+```
+
+## Alternatives checked
+
+```text id="903s64"
+AWS
+Azure
+GCP
+Render
+Railway
+Vercel
+```
+
+## Research finding
+
+Fly.io states customers with HIPAA compliance needs may request a BAA, and its compliance/pricing pages describe a compliance package and HIPAA/BAA documents. ([Fly.io][18]) Fly’s healthcare docs emphasize that signing a BAA is needed before HIPAA apps are deployed. ([Fly.io][19])
+
+## Recommendation
+
+```text id="9gts35"
+Stay with Fly.io.
+```
+
+But add this hard gate:
+
+```text id="zxhk8e"
+No real PHI through Fly.io apps until BAA/compliance package is active.
+```
+
+---
+
+# 6. OCR / document processing: use routing, not one tool
+
+## Current planned stack
+
+```text id="ypl0au"
+deepdoctection + DocTr
+Mistral OCR 4 if handwriting spike fails
+LlamaParse fallback
+Docling Phase 1D evaluation
+```
+
+## Research finding
+
+Mistral OCR 4 was released June 23, 2026 and includes bounding boxes, block classification, inline confidence scores, 170-language support, and self-hosted deployment in a single container. Mistral prices the API at $4/1,000 pages, with batch discount to $2/1,000 pages. ([Mistral AI][20])
+
+OpenMed 1.7.0 also added OCR adapters, multimodal document primitives, source spans, image/PDF redaction, metadata scrubbing, and de-identification adapters for CDA/C-CDA, HL7 v2, CSV/TSV, FHIR, bulk NDJSON, and more. ([OpenMed][21])
+
+Docling is a strong document-conversion/PDF parsing framework with table, formula, reading-order, OCR, and structured output support. ([Docling][22]) A 2026 PDF-to-RAG benchmark found Docling with hierarchy-aware splitting and image descriptions achieved the highest automated accuracy among the tested pipelines. ([arXiv][23])
+
+## Recommendation
+
+Do not choose one OCR tool.
+
+Use routing:
+
+```text id="k6l3ko"
+Digital-born PDFs:
+    Docling candidate in Phase 1D
+
+Scanned/handwritten/messy medical pages:
+    deepdoctection + DocTr baseline
+
+Handwriting fails threshold:
+    Mistral OCR 4 self-hosted preferred, if access/license/deployment confirmed
+
+Cloud fallback:
+    LlamaParse only with BAA and only for flagged pages
+```
+
+## Architecture change
+
+Add document routing fields now:
+
+```text id="b2rcme"
+document_type_guess
+page_type_guess
+ocr_route
+ocr_backend
+ocr_confidence
+needs_escalation
+source_spans_available
+```
+
+Even if OCR is Phase 1D, the data model should not assume one OCR backend.
+
+---
+
+# 7. Clinical NLP: OpenMed now, BioClinical ModernBERT later
+
+## Current choice
+
+```text id="ftd7f7"
+OpenMed for Phase 1C provider extraction
+BioClinical ModernBERT Phase 1D evaluation
+```
+
+## Research finding
+
+BioClinical ModernBERT is real and relevant: the paper says it is trained on over 53.5B biomedical/clinical tokens, supports long-context processing, and outperforms existing biomedical/clinical encoders on downstream tasks. ([arXiv][24]) Clinical ModernBERT resources also emphasize 8,192-token context length, useful for lengthy clinical documents. ([GitHub][25])
+
+OpenMed 1.7.0 is very relevant for TRACE because it now covers multimodal de-identification and source-span primitives that map well to PHI-safe medical-document workflows. ([OpenMed][21])
+
+## Recommendation
+
+```text id="iwnn67"
+OpenMed 1.7.x for Phase 1C.
+BioClinical ModernBERT only as Phase 1D long-context backend.
+```
+
+Do not replace OpenMed in Phase 1C.
+
+## Architecture change
+
+Add env placeholders:
+
+```text id="fdt25k"
+NLP_PROVIDER_BACKEND=openmed
+NLP_LONG_CONTEXT_BACKEND=disabled
+```
+
+Later:
+
+```text id="ednldd"
+NLP_LONG_CONTEXT_BACKEND=bioclinical_modernbert
+```
+
+---
+
+# 8. De-identification: local/self-hosted wins
+
+## Current choice
+
+```text id="yo6zv3"
+OpenMed/Nemotron-style privacy/de-identification path
+```
+
+## Alternatives checked
+
+```text id="k2mdwp"
+AWS Comprehend Medical
+Azure Health Data Services
+Commercial de-ID APIs
+OpenAI/Azure OpenAI de-ID prompts
+```
+
+## Research finding
+
+AWS Comprehend Medical is a HIPAA-eligible NER/relationship extraction service that includes PHI detection APIs. ([arXiv][26]) However, a 2025 comparative study found zero-shot/commercial APIs did not meet regulatory-grade de-identification accuracy as well as a local healthcare NLP solution; the reported local Healthcare NLP result achieved 96% F1 for PHI detection versus Azure 91%, AWS 83%, and GPT-4o 79%. ([arXiv][27])
+
+## Recommendation
+
+```text id="2ho0x8"
+Keep local/self-hosted de-identification as default.
+Do not rely on LLM prompting for PHI de-identification.
+```
+
+Cloud de-ID APIs can be fallback/comparison tools, not the primary privacy boundary.
+
+---
+
+# 9. LLM layer: do not self-host DeepSeek V4 Pro early
+
+## Current idea
+
+```text id="xlkmqd"
+DeepSeek V4 Pro self-hosted for billing reconciliation / later reasoning
+```
+
+## Research finding from attached audit
+
+Your uploaded full-stack audit says DeepSeek V4 Pro self-hosting is economically and operationally impractical for early TRACE volume, because large MoE models require multi-GPU infrastructure while TRACE’s early token volume is tiny. It recommends Azure OpenAI GPT-4o-mini as the pragmatic production default later, with DeepSeek V4 Flash as a candidate through an LLM abstraction. 
+
+OpenAI’s own healthcare announcement says eligible API customers can apply for a BAA to support HIPAA compliance requirements. ([OpenAI][28]) Fly/Supabase BAAs alone do not cover PHI sent to an LLM provider; the LLM provider itself needs a BAA/covered terms if PHI is transmitted.
+
+LiteLLM can help centralize routing/logging, but its docs show prompt/spend logging controls that must be configured carefully; do not allow prompts/responses containing PHI to be stored in spend logs. ([LiteLLM][29])
+
+## Recommendation
+
+```text id="6bwvfz"
+No LLM in Phase 1C.
+No LLM required for Phase 1D unless billing reconciliation/QA needs it.
+When LLM is needed, use LLMService abstraction with PHI-safe provider gate.
+```
+
+Preferred order later:
+
+```text id="m2614g"
+1. Deterministic/local extraction first.
+2. Azure OpenAI / OpenAI API with BAA if PHI must be sent.
+3. DeepSeek Flash API candidate only if HIPAA/BAA/provider terms are confirmed.
+4. Self-host DeepSeek Pro only at much higher volume.
+```
+
+## Architecture change
+
+Add:
+
+```text id="bgxhpq"
+LLM_BACKEND=disabled
+LLM_PHI_ALLOWED=false
+```
+
+until counsel/security approves a covered provider.
+
+---
+
+# 10. NPI provider lookup: keep CMS NPPES API
+
+## Current choice
+
+```text id="3kuch6"
+CMS NPPES NPI Registry API
+```
+
+## Alternatives checked
+
+```text id="zzd37t"
+commercial provider directories
+Verisys / NPI APIs
+LexisNexis provider data
+manual-only lookup
+```
+
+## Recommendation
+
+Keep CMS NPPES API as the baseline. It is public, free, and fit for provider candidate matching. Do not treat it as truth for fax numbers or request routing; it is a candidate-enrichment layer.
+
+Architecture rule:
+
+```text id="2qw82u"
+NPI match ≠ permission to fax.
+Only attorney/staff-confirmed provider + signed HIPAA auth + approved outgoing request can send.
+```
+
+---
+
+# Final TRACE architecture posture
+
+The architecture is **good to build after these revisions**.
+
+```text id="w5sifw"
+Phase 1C:
+- OpenMed 1.7 provider extraction
+- NPI enrichment
+- optional client provider confirmation
+- attorney provider confirmation
+- fax vendor bake-off
+- outbound fax
+- inbound fax skeleton
+- client upload link
+- OCR spike
+
+Phase 1D:
+- document routing
+- Docling digital PDF path
+- DocTr handwritten/scanned path
+- Mistral OCR 4 self-host escalation if feasible
+- BioClinical ModernBERT long-context evaluation
+- local de-identification first
+
+Phase 1E+:
+- billing reconciliation
+- optional LLMService
+- Azure/OpenAI/other HIPAA-covered LLM provider only if needed
+```
+
+# Revised instructions to coding agent
+
+```text id="af1b8q"
+Do not rebuild the TRACE architecture from scratch. Proceed with the current architecture after applying this tool-stack revision.
+
+1. E-signature
+   - Keep DocuSeal.
+   - Do not process real PHI/signing packets unless DocuSeal Cloud HIPAA + BAA is confirmed or DocuSeal is self-hosted inside TrueVow’s BAA-covered infrastructure.
+   - Keep Documenso as a future backup only.
+
+2. Auth
+   - Keep Clerk for now.
+   - Introduce an AuthContext abstraction:
+     user_id, firm_id, role, permissions.
+   - Do not leak Clerk-specific objects into TRACE service logic.
+   - Document Supabase Auth as Phase 3+ consolidation candidate.
+
+3. Fax
+   - Replace Fax.Plus/Documo-only decision with four-vendor bake-off:
+     SRFax, Documo, iFax, Fax.Plus.
+   - Add FAX_PROVIDER values:
+     srfax, documo, ifax, faxplus.
+   - FaxService must fail loudly on unknown provider.
+   - Select SRFax if API, BAA, inbound fax, and delivery status pass.
+   - Select Documo if workflow/inbound APIs are materially better.
+   - Select iFax only after signed BAA tier and webhook reliability are confirmed.
+   - Select Fax.Plus only if Enterprise controls justify higher cost.
+
+4. Database/storage
+   - Keep Supabase Postgres and Supabase Storage.
+   - Require signed Supabase BAA + HIPAA add-on before real PHI.
+   - Do not self-host Supabase for HIPAA at this stage.
+
+5. Hosting
+   - Keep Fly.io.
+   - Require Fly.io BAA/compliance package before real PHI.
+   - Synthetic data only in non-covered environments.
+
+6. OCR/document processing
+   - Do not build OCR in Phase 1C.
+   - Add data-model fields for future routing:
+     document_type_guess, page_type_guess, ocr_route, ocr_backend, ocr_confidence, needs_escalation, source_spans_available.
+   - Phase 1D plan:
+     Docling for digital PDFs.
+     deepdoctection + DocTr for handwritten/scanned pages.
+     Mistral OCR 4 self-hosted as preferred Tier 2 only if access/license/deployment are confirmed.
+     LlamaParse only as BAA-covered cloud fallback for flagged pages.
+
+7. Clinical NLP
+   - Target OpenMed 1.7.x for Phase 1C provider extraction.
+   - Store model_version, source_quote, source_offset/source_span, extraction_source.
+   - Add env:
+     NLP_PROVIDER_BACKEND=openmed
+     NLP_LONG_CONTEXT_BACKEND=disabled
+   - Do not implement BioClinical ModernBERT in Phase 1C.
+   - Evaluate BioClinical ModernBERT in Phase 1D.
+
+8. De-identification
+   - Prefer local/self-hosted de-identification.
+   - Do not use LLM prompts as the primary de-identification method.
+   - Cloud de-ID APIs are comparison/fallback only.
+
+9. LLM
+   - No LLM in Phase 1C.
+   - Add:
+     LLM_BACKEND=disabled
+     LLM_PHI_ALLOWED=false
+   - Do not self-host DeepSeek V4 Pro in early TRACE.
+   - If LLM is needed later, use an LLMService abstraction and only enable PHI transmission under a provider BAA/covered terms.
+
+10. NPI
+   - Keep CMS NPPES API as candidate enrichment.
+   - NPI match does not authorize faxing.
+   - Faxing requires attorney/staff confirmation, signed HIPAA auth, and Checkpoint 2 approval.
+
+11. Build posture
+   - Proceed with TRACE.
+   - Do not add case valuation.
+   - Do not add medical interpretation.
+   - Do not add settlement recommendations.
+   - TRACE remains case-readiness infrastructure for attorney review.
+```
+
+# Final answer
+
+```text id="g2f9wp"
+TRACE is good to build.
+
+But before coding, revise the architecture with:
+- expanded fax bake-off,
+- AuthContext abstraction,
+- OpenMed 1.7 target,
+- OCR routing fields,
+- no early LLM,
+- local de-identification default,
+- Supabase/Fly BAA gates,
+- Docling/Mistral/BioClinical as Phase 1D routed tools, not Phase 1C scope.
+```
+
+This keeps TRACE simple and 101% useful: **confirm providers, send valid record requests, receive documents, and prepare the case file for attorney review — without pretending to value the case or interpret medicine.**
+
+[1]: https://www.docuseal.com/security?utm_source=chatgpt.com "Security"
+[2]: https://www.docuseal.com/hipaa?utm_source=chatgpt.com "HIPAA Compliant eSignature"
+[3]: https://documenso.com/blog?utm_source=chatgpt.com "Blog"
+[4]: https://docs.opensignlabs.com/?utm_source=chatgpt.com "Official OpenSign™ Docs - tutorials, API documentation, self ..."
+[5]: https://clerk.com/blog/2026-02-10-dns-outage-postmortem?utm_source=chatgpt.com "Postmortem: DNS Provider Outage (February 10, 2026)"
+[6]: https://supabase.com/features/auth-hooks?utm_source=chatgpt.com "Auth Hooks | Supabase Features"
+[7]: https://auth0.com/healthcare?utm_source=chatgpt.com "Healthcare CIAM & Identity Management"
+[8]: https://www.fax.plus/fax-api/hipaa-fax-api?utm_source=chatgpt.com "HIPAA fax API"
+[9]: https://www.fax.plus/blog/compare/review/srfax?utm_source=chatgpt.com "SRFax Review 2026: HIPAA, Pricing, and How It Compares"
+[10]: https://faxradar.com/en/documo-alternatives?utm_source=chatgpt.com "8 Best Documo Alternatives (2026) — Compared"
+[11]: https://www.techradar.com/best/best-online-fax-service?utm_source=chatgpt.com "Best online fax service of 2025"
+[12]: https://www.documo.com/pricing/?utm_source=chatgpt.com "Plans & Pricing | Cloud Fax & AI Document Automation"
+[13]: https://docs.documo.com/?utm_source=chatgpt.com "Documo API Documentation"
+[14]: https://www.ifaxapp.com/healthcare/setup-cloud-fax-api/?utm_source=chatgpt.com "How Do I Set up Cloud Fax API Functionality for a ..."
+[15]: https://www.fax.plus/blog/compare/review/ifax?utm_source=chatgpt.com "iFax Review 2026: Is This Fax Service Worth It?"
+[16]: https://supabase.com/docs/guides/platform/hipaa-projects?utm_source=chatgpt.com "HIPAA Projects | Supabase Docs"
+[17]: https://supabase.com/docs/guides/security/hipaa-compliance?utm_source=chatgpt.com "HIPAA Compliance and Supabase"
+[18]: https://fly.io/documents/?utm_source=chatgpt.com "Compliance Documents"
+[19]: https://fly.io/docs/blueprints/going-to-production-with-healthcare-apps/?utm_source=chatgpt.com "Going to Production with Healthcare Apps"
+[20]: https://mistral.ai/news/ocr-4/?utm_source=chatgpt.com "Mistral OCR 4 : SOTA OCR for Document Intelligence"
+[21]: https://openmed.life/docs/release/v1.7.0/?utm_source=chatgpt.com "OpenMed 1.7.0 Release Notes"
+[22]: https://www.docling.ai/?utm_source=chatgpt.com "Docling"
+[23]: https://arxiv.org/abs/2604.04948?utm_source=chatgpt.com "From PDF to RAG-Ready: Evaluating Document Conversion Frameworks for Domain-Specific Question Answering"
+[24]: https://arxiv.org/abs/2506.10896?utm_source=chatgpt.com "BioClinical ModernBERT: A State-of-the-Art Long-Context Encoder for Biomedical and Clinical NLP"
+[25]: https://github.com/Simonlee711/Clinical_ModernBERT?utm_source=chatgpt.com "[arXiv 2025] Pre-training script for Clinical ModernBERT ..."
+[26]: https://arxiv.org/abs/1910.07419?utm_source=chatgpt.com "Comprehend Medical: a Named Entity Recognition and Relationship Extraction Web Service"
+[27]: https://arxiv.org/abs/2503.20794?utm_source=chatgpt.com "Can Zero-Shot Commercial APIs Deliver Regulatory-Grade Clinical Text DeIdentification?"
+[28]: https://openai.com/index/openai-for-healthcare/?utm_source=chatgpt.com "Introducing OpenAI for Healthcare"
+[29]: https://docs.litellm.ai/docs/proxy/ui_logs?utm_source=chatgpt.com "Getting Started with UI Logs"

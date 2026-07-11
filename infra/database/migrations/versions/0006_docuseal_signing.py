@@ -53,7 +53,7 @@ def upgrade() -> None:
     op.create_table(
         "signed_documents",
         sa.Column("signing_id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("case_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("cases.case_id", ondelete="CASCADE"), nullable=False),
+        sa.Column("case_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("trace.cases.case_id", ondelete="CASCADE"), nullable=False),
         sa.Column("firm_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("docuseal_submission_id", sa.String(255), nullable=False),
         sa.Column("document_type", sa.String(30), nullable=False),

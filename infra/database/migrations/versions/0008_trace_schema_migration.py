@@ -77,7 +77,7 @@ def upgrade() -> None:
         )
 
     for table_name in _FIRM_SCOPED_TABLES:
-        op.execute(f"ALTER TABLE trace.{table_name} ENABLE ROW LEVEL SECURITY;" if _check_table_exists(table_name) else f"ALTER TABLE IF EXISTS trace.{table_name} ENABLE ROW LEVEL SECURITY;")
+        op.execute(f"ALTER TABLE IF EXISTS trace.{table_name} ENABLE ROW LEVEL SECURITY;")
 
     op.execute("""
         DO $$

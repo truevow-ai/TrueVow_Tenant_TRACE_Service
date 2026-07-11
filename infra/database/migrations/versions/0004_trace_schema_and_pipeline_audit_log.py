@@ -58,17 +58,21 @@ def upgrade() -> None:
         schema="trace",
     )
 
+    op.execute("DO $$ BEGIN CREATE ROLE trace_app_role NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;")
+    op.execute("DO $$ BEGIN CREATE ROLE trace_phi_role NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;")
+    op.execute("DO $$ BEGIN CREATE ROLE trace_readonly_role NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;")
+
     op.execute("REVOKE UPDATE, DELETE ON trace.pipeline_audit_log FROM trace_app_role;")
     op.execute("GRANT INSERT ON trace.pipeline_audit_log TO trace_app_role;")
 
-    op.execute("""
-        ALTER TABLE trace.pipeline_audit_log ENABLE ROW LEVEL SECURITY;
-        ALTER TABLE trace.pipeline_audit_log FORCE ROW LEVEL SECURITY;
-        CREATE POLICY tenant_isolation ON trace.pipeline_audit_log USING (
-            case_id IN (SELECT case_id FROM trace.cases WHERE
-            firm_id = current_setting('app.current_tenant_id', true)::uuid)
-        );
-    """)
+    op.execute("ALTER TABLE trace.pipeline_audit_log ENABLE ROW LEVEL SECURITY;")
+    op.execute("ALTER TABLE trace.pipeline_audit_log FORCE ROW LEVEL SECURITY;")
+    op.execute(
+        "CREATE POLICY tenant_isolation ON trace.pipeline_audit_log USING ("
+        "case_id IN (SELECT case_id FROM trace.cases WHERE "
+        "firm_id = current_setting('app.current_tenant_id', true)::uuid)"
+        ");"
+    )
 
 
 def downgrade() -> None:

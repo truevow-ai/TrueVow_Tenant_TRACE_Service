@@ -1,0 +1,179 @@
+{
+  "engine": "PaddleOCR-VL",
+  "timestamp": "2026-07-10T19:26:12.843480+00:00",
+  "total_tested": 24,
+  "mean_wer": 1.0,
+  "median_wer": 1.0,
+  "decision": "mistral_local",
+  "reason": "Below 65%. Mistral OCR 4 Tier 2 mandatory.",
+  "per_image": [
+    {
+      "id": "hw_000",
+      "ground_truth": "NIVEOLI MDI, LEVOLIN INHALER MDI, MONTAIR FX TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_001",
+      "ground_truth": "NEXITO 5MG TAB, REJUNEX CD3 TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_002",
+      "ground_truth": "CEPODEM XP 325MG TAB, DOLO TAB 650MG, MONTAIR FX TAB, BETADINE GARGLE",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_003",
+      "ground_truth": "ALLEGRA SYR, AMBROLITE S SYP, AZITHRAL 200MG SYP, LOOZ SYP, PEGURA PWD, ZINCOVIT SYP, OROFER XT SYP, MONTAIR LC SYP, LEVOSALBUTAMOL NEB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_004",
+      "ground_truth": "GLIMY TAB 4MG, TELMA 40MG TAB, VOLIX 0.3MG TAB, JANUMET 50/1000MG TAB, LANTUS SOLOSTAR INJ",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_006",
+      "ground_truth": "DEPURA, MONTEK 10MG TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_008",
+      "ground_truth": "HCQS 200MG TAB, FOLITRAX 15MG TAB, FOLVITE 5MG TAB, RABLET-D TAB, D GAIN SACHET , WYSOLONE 5MG TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_009",
+      "ground_truth": "AZITHRAL TAB TAB 500MG, SINAREST TAB TAB, COREX-DX SYR, , NEUROBION FORTE TAB FILCOTAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_010",
+      "ground_truth": "CROCIN DS SUSP, MEFTAL P SYP, ALLEGRA SYR, AMBROLITE-S SYR, NASIVION PAED N-DPS",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_011",
+      "ground_truth": "ALLEGRA SYR, CANDID EAR-DPS, MONTAIR 4MG TAB, NASOCLEAR N-DPS, MEFTAL P SYP, ZINCONIA SYP, ENTEROGERMINA SUSP",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_013",
+      "ground_truth": ", ASCORIL EXPT SYR, AUGMENTIN 325MG TAB, DYNAPAR INJ VIAL",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_014",
+      "ground_truth": "ARACHITOL 6L INJ, NERVIDAY INJ, SUPRACAL OS TAB, HADJOD CAP, A TO Z TAB, CARTIGEN FORTE TAB, UPRISE D3 60K CAP",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_015",
+      "ground_truth": "LAXOPEG 17 GM SACH, BUDECORT 100 INHALER, MONTAIR 4MG TAB, BEVON SYR",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_018",
+      "ground_truth": "BETADINE GARGLE, , MONTAIR-LC TAB, AUGMENTIN 325MG TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_019",
+      "ground_truth": "ECOSPRIN TAB 75MG, CLOPITAB 75MG TAB, TONACT TG 10MG TAB, STARPRESS XL 25MG TAB, IVABRAD TAB, IMDUR 30MG TAB , GEMER TAB, RIVOTRIL 0.5MG TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_021",
+      "ground_truth": "NERVMAX CAP, SUPRACAL PRO TAB, UPRISE D3 60K TAB, PANTOCID-L CAP, FLEXON -MR TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_022",
+      "ground_truth": "CORDARONE 200MG TAB, ATARAX 25MG TAB, OFLOX-OZ, VSL #3 CAP, ZEDOTT TAB, BIO D3 MAX, DROTIN-M TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_023",
+      "ground_truth": "LINID 600MG TAB, VIZYLAC CAP, ZERODOL-P FC-TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_024",
+      "ground_truth": "SAAZ DS TAB, FOLITRAX 15MG TAB, FOLVITE 5MG TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_025",
+      "ground_truth": "ALLEGRA 120MG TAB, AMBROLITE S SYP, AZITHRAL 500MG TAB, PEGURA PWD",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_026",
+      "ground_truth": "PAN 40MG INJ, EMESET INJ, PAN DSR CAP, EMESET-MD TAB, ZITEN 20MG TAB, GLYCOMET GP2 TAB, COVERSYL 4MG TAB, ECOSPRIN-AV 75MG TAB, LONAZEP MD 0.5MG TAB, ATEN 50MG TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_027",
+      "ground_truth": ", CALPOL SUSP 250MG/5ML, PIRITON-CS SYR",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_028",
+      "ground_truth": "VERTIN 16MG TAB, ATORVAS 20MG TAB, EVION TAB, SILIGREEN TAB, CORUS CAP, DILZEM, ADCUMIN SYP, COENZYME Q10, STOMULATE CAP, UVILAX SYP, CALBRIT TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    },
+    {
+      "id": "hw_029",
+      "ground_truth": "NEXITO 10MG TAB, LONAZEP-MD 0.25MG TAB, BECOSULES-Z CAP, FAMOCID TAB 40MG, NAXDOM TAB",
+      "ocr_output": "",
+      "wer": 1.0,
+      "confidence": 0.0
+    }
+  ]
+}

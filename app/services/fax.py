@@ -182,16 +182,16 @@ class FaxPlusService(FaxService):
 
 
 def create_fax_service() -> FaxService:
-    provider = os.getenv("FAX_PROVIDER", "srfax").lower()
-    if provider == FaxProvider.SRFAX.value:
-        return SRFaxService()
+    provider = os.getenv("FAX_PROVIDER", "documo").lower()
     if provider == FaxProvider.DOCUMO.value:
         return DocumoService()
     if provider == FaxProvider.FAXPLUS.value:
         return FaxPlusService()
+    if provider == FaxProvider.SRFAX.value:
+        return SRFaxService()
     raise ValueError(
         f"Unrecognized FAX_PROVIDER: {provider!r}. "
-        f"Must be one of: srfax, documo, faxplus."
+        f"Must be one of: documo, faxplus, srfax."
     )
 
 

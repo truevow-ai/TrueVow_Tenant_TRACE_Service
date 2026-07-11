@@ -43,7 +43,7 @@ class SignedDocument(Base, TimestampMixin):
     signing_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     case_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("cases.case_id", ondelete="CASCADE"), nullable=False)
     firm_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
-    docuseal_submission_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    docuseal_submission_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     document_type: Mapped[str] = mapped_column(String(30), nullable=False)
     signing_status: Mapped[str] = mapped_column(String(20), nullable=False, default="SENT")
     client_signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

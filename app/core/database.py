@@ -20,7 +20,7 @@ from app.auth.deps import AuthContext, get_current_context
 from app.core.config import settings
 
 
-def _create_engine(url: str):
+def _create_engine(url: str, *, search_path: str = ""):
     if url.startswith("sqlite"):
         return create_async_engine(
             url,
@@ -30,17 +30,16 @@ def _create_engine(url: str):
         )
     connect_args: dict = {}
     if "pooler.supabase.com" in url:
-        # Supabase transaction pooler (pgBouncer) requires disabling the prepared
-        # statement cache.
         connect_args["statement_cache_size"] = 0
+    if search_path:
+        connect_args["server_settings"] = {"search_path": search_path}
     return create_async_engine(url, pool_pre_ping=True, connect_args=connect_args, future=True)
 
 
-engine = _create_engine(settings.effective_database_url)
+engine = _create_engine(settings.effective_database_url, search_path="trace")
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-# Separate PHI store engine/session (distinct database instance).
-phi_engine = _create_engine(settings.effective_phi_database_url)
+phi_engine = _create_engine(settings.effective_phi_database_url, search_path="trace_phi")
 phi_session_maker = async_sessionmaker(phi_engine, expire_on_commit=False, class_=AsyncSession)
 
 

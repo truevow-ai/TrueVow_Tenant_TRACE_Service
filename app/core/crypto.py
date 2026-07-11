@@ -5,7 +5,8 @@ of the database entirely — it comes from KMS/Secrets Manager — which matches
 spec's "keys managed via KMS, never stored in the database" requirement and stays
 portable across the operational Postgres and the SQLite test fallback.
 
-Wire format: ``nonce(12) || ciphertext+tag``. Store as BYTEA/BLOB.
+Ciphertext is stored as base64-encoded Text in ``trace_phi.clients``.
+Wire format: ``nonce(12) || ciphertext+tag``, then base64-encoded.
 """
 
 from __future__ import annotations
@@ -35,13 +36,15 @@ def _key() -> bytes:
     return decoded[:32]
 
 
-def encrypt(plaintext: str) -> bytes:
+def encrypt(plaintext: str) -> str:
     aesgcm = AESGCM(_key())
     nonce = os.urandom(_NONCE_BYTES)
-    return nonce + aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
+    blob = nonce + aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
+    return base64.b64encode(blob).decode()
 
 
-def decrypt(blob: bytes) -> str:
+def decrypt(encoded: str) -> str:
+    blob = base64.b64decode(encoded)
     aesgcm = AESGCM(_key())
     nonce, ciphertext = blob[:_NONCE_BYTES], blob[_NONCE_BYTES:]
     return aesgcm.decrypt(nonce, ciphertext, None).decode("utf-8")

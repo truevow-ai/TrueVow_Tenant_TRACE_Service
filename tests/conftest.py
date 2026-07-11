@@ -15,8 +15,10 @@ import uuid
 os.environ["ENVIRONMENT"] = "development"
 os.environ["AUTH_MODE"] = "local"
 os.environ["LOCAL_JWT_SECRET"] = "test-secret-at-least-32-bytes-long-000"
-os.environ.pop("TRACE_DATABASE_URL", None)
+os.environ["TRACE_DATABASE_URL"] = ""
+os.environ["TRACE_PHI_DATABASE_URL"] = ""
 os.environ.pop("DATABASE_URL", None)
+os.environ.pop("PHI_DATABASE_URL", None)
 
 import jwt  # noqa: E402
 import pytest_asyncio  # noqa: E402

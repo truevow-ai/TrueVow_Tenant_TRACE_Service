@@ -1,0 +1,14 @@
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir --timeout 300 --retries 5 "numpy<2" "paddlepaddle>=2.6.0" "paddleocr>=2.7.0"
+RUN pip install --no-cache-dir pymupdf pandas pyarrow pillow
+
+RUN python -c "from paddleocr import PaddleOCR; print('PaddleOCR OK')"
+
+COPY tests/spike_paddle.py /spike_runner.py
+
+CMD ["python", "/spike_runner.py"]

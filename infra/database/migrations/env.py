@@ -12,9 +12,13 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.models import Base
+
+# Load .env.local so TRACE_DATABASE_URL is available without manual export
+load_dotenv(".env.local", override=True)
 
 config = context.config
 if config.config_file_name:
@@ -50,7 +54,7 @@ def _do_run_migrations(connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    engine = create_async_engine(_db_url(), pool_pre_ping=True)
+    engine = create_async_engine(_db_url(), pool_pre_ping=True, connect_args={"statement_cache_size": 0})
     async with engine.connect() as connection:
         await connection.run_sync(_do_run_migrations)
     await engine.dispose()

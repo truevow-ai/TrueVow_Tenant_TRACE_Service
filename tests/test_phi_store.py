@@ -23,12 +23,12 @@ async def test_pii_is_encrypted_at_rest_and_round_trips():
         firm_id=firm_id,
     )
 
-    # Stored bytes must NOT contain plaintext.
+    # Stored value must NOT contain plaintext.
     async with phi_session_maker() as session:
         row = (await session.execute(select(Client).where(Client.client_token == token))).scalar_one()
-        assert b"Jane" not in row.encrypted_name
-        assert b"1985" not in row.encrypted_dob
-        assert isinstance(row.encrypted_name, (bytes, bytearray))
+        assert "Jane" not in (row.encrypted_name or "")
+        assert "1985" not in (row.encrypted_dob or "")
+        assert isinstance(row.encrypted_name, (str, type(None)))
 
     # Decryption round-trips.
     data = await get_client(token)

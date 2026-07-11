@@ -10,32 +10,37 @@ primary_region = 'iad'
 # All other outbound is blocked. Phase 1A development uses synthetic data only;
 # production gates (Supabase HIPAA add-on, Fly.io compliance package) in §22.
 [[http_service.checks]]
-  interval = '10s'
-  timeout = '3s'
+  interval = '60s'
+  timeout = '30s'
+  grace_period = '60s'
   method = 'GET'
   path = '/health'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
+  processes = ["app"]
 
-# VM sizing note: ADR-001 §26 requires benchmarking DeepSeek V4 Pro memory
-# requirements before Phase 1D. Current size is for Phase 1A skeleton only.
+[processes]
+  app = "uvicorn app.main:app --host 0.0.0.0 --port 8080"
+
+# PaddlePaddle 3.3 + OCR models need ~1-2GB RAM.
+# shared-cpu-2x (2 vCPU, 1GB) is the minimum for the full OCR/NLP stack.
 [[vm]]
-  size = 'shared-cpu-1x'
-  memory = '512mb'
+  size = 'shared-cpu-2x'
+  memory = '2048mb'
 
 # Fly.io secrets for production (never in git, never in fly.toml).
 # Set via: fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
 # Egress allowlist enforced via Fly.io network policies.
 # Allowed external endpoints:
 #   - Clerk API (auth tokens only, no PHI)
-#   - Fax.Plus API (PHI in transit, BAA-covered)
+#   - Documo API (PHI in transit, BAA-covered)
 #   - CMS NPI Registry API (gov HTTPS, provider data only)
-#   - LlamaParse API (only if Phase 1C handwriting spike triggers escalation, BAA-covered)
+#   - Mistral OCR API (Tier 2 escalation only, BAA-covered)
 
 [env]
   ENVIRONMENT = 'production'

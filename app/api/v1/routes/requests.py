@@ -55,7 +55,16 @@ async def preview_requests(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     firm = uuid.UUID(ctx.firm_id)
-    await _owned_case(case_id, firm, db)
+    case = await _owned_case(case_id, firm, db)
+
+    # Block if HIPAA authorization not signed
+    if case.hipaa_auth_status != "SIGNED":
+        raise HTTPException(status_code=403, detail="HIPAA authorization must be signed before sending fax requests.")
+
+    # Block if provider list not locked
+    if case.provider_list_status != "CONFIRMED":
+        raise HTTPException(status_code=403, detail="Provider list must be confirmed before sending fax requests.")
+
     providers = await _confirmed_providers(case_id, db)
     return {
         "case_id": case_id,

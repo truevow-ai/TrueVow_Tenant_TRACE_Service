@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     docuseal_webhook_secret: str = ""
     docuseal_signing_link_expiry_days: int = 7
 
+    # --- NLP backends ---
+    nlp_provider_backend: str = "openmed"         # openmed | disabled
+    nlp_long_context_backend: str = "disabled"     # disabled | bioclinical_modernbert (Phase 1D)
+
+    # --- Billing LLM (Phase 1D) ---
+    llm_backend: str = "disabled"                  # disabled | azure_openai | deepseek_api | anthropic
+    llm_phi_allowed: bool = False                  # must be true before any PHI-adjacent prompt
+
     # --- CORS ---
     cors_allow_origins: str = "*"
 

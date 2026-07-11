@@ -12,7 +12,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import CheckConstraint, Date, DateTime, String, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
@@ -69,6 +69,8 @@ class Case(Base, TimestampMixin):
             name="valid_stage",
         ),
     )
+
+    event_nodes = relationship("EventNode", back_populates="case", cascade="all, delete-orphan")
 
     def to_summary(self) -> dict:
         """Firm-safe summary. Contains no PII (client is a token only)."""

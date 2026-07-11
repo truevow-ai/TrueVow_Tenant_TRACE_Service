@@ -7,14 +7,15 @@
 **Prerequisite reading:** ADR-001, ADR-002, TRACE PRD §5.1–§5.4, TRACE Technical Implementation Spec §4.3–§4.5a, §5.1b  
 **Phase 1B status:** Complete — 37/37 tests passing
 
-**Six tool recommendations updated from July 2026 research:**
+**Three OCR/NLP tool recommendations from July 2026 research:**
+1. Tier 2 OCR escalation: LlamaParse replaced by **Mistral OCR 4 self-hosted** as preferred (no BAA, air-gapped)
+2. Clinical NLP: OpenMed stays for Phase 1C; **BioClinical ModernBERT** added as Phase 1D long-context backend (8,192-token window vs OpenMed's 512)
+3. Docling (IBM, Apache 2.0, 61k GitHub stars) evaluated for Phase 1D digital PDF Tier 1 — no Phase 1C action
 
-1. **OpenMed v1.7.0** (released July 1 2026) adds multimodal document intake, OCR adapters, and FHIR/HL7 de-ID. Phase 1C uses provider NER from intake transcript only. Phase 1D unlocks multimodal.
-2. **Fax vendor reopened** — SRFax ($12.60/mo HIPAA, developer libraries) now primary candidate. Documo ($25/mo) backup. Fax.Plus ($79.99) fallback. Sandbox bake-off required before vendor lock.
-3. **Mistral OCR 4** self-hosted preferred Tier 2 OCR — treat as preferred candidate, not guaranteed dependency. Only if license/deployment/PHI boundary confirmed. LlamaParse fallback with BAA for flagged pages only.
-4. **Client provider confirmation link** — tokenized page for clients to confirm/reject/add providers before attorney lock. Not a client portal. One-page confirmation only.
-5. **Inbound fax intake skeleton** — receive/store raw PDFs in Phase 1C, no OCR until Phase 1D.
-6. **Docling** (IBM, Apache 2.0) and **BioClinical ModernBERT** evaluated in Phase 1D, not Phase 1C. Placeholder env vars added now.
+**Full stack audit findings (July 2026) — three changes from prior ADRs:**
+4. **Billing LLM: DeepSeek V4 Pro self-hosted → Azure OpenAI GPT-4o-mini** — DeepSeek V4 Pro requires a 4-GPU cluster (minimum 31M tokens/day breakeven). TRACE processes ~1-2.5M tokens/month at early access. Self-hosting is not economically rational. Azure OpenAI GPT-4o-mini has automatic HIPAA BAA under Microsoft DPA and costs ~$0.50/month at TRACE's token volume.
+5. **Fax vendor: Documo selected (quality-first)** — HITRUST CSF certification, inbound IDP for document classification, 99.8% delivery rate, purpose-built healthcare confirmation infrastructure. iFax eliminated on transmission quality (below clinical document standard on independent testing). Fax.Plus retained in FaxService abstraction as fallback only.
+6. **Auth: Clerk via @truevow/auth-client — no migration.** Clerk is a three-domain platform architecture with shared libraries (`auth-client`, `rbac-engine`, `security-utils`), CSM impersonation, cross-domain service-to-service token exchange, and platform operators who are not firm-scoped. Supabase Auth has no equivalent for these. TRACE consumes the shared `@truevow/auth-client` ClerkWrapper — it never imports Clerk packages directly. AuthContext abstraction wraps the ClerkWrapper for testability and isolation.
 
 ---
 
@@ -30,37 +31,27 @@ Phase 1C is the first phase that touches real providers. After Phase 1C, an atto
 
 The handwriting accuracy spike also lives in Phase 1C and must complete **before Phase 1D OCR pipeline build begins**.
 
-**Seven deliverables in build order:**
+**Five deliverables in build order:**
 
 ```
-1. OpenMed NER (v1.7.0) — replaces Phase 1B stub
-   (real provider extraction from intake transcript text,
-    store model_version + source_span + source_quote)
+1. OpenMed NER — replaces Phase 1B stub
+   (real provider extraction from intake transcript text)
 
-2. NPI candidate matching + confidence labels
-   (throttled lookup, exponential backoff, Confirmed/Likely/Review taxonomy)
-
-3. Client provider confirmation link (new — see §3a)
-   (tokenized page, confirm/reject/add providers, not a client portal)
-
-4. Provider confirmation UI
+2. Provider confirmation UI
    (checklist, confidence taxonomy, confirm gate, Checkpoint 1)
 
-5. Fax vendor sandbox bake-off (preq to transmission)
-   (SRFax primary, Documo backup, Fax.Plus fallback. Send/receive/status/BAA)
+3. Fax request generation
+   (HIPAA cover sheet PDF, signed HIPAA auth attached)
 
-6. Fax request generation + transmission
-   (HIPAA cover sheet PDF, Checkpoint 2, delivery webhook, configurable follow-up)
+4. Fax transmission via selected vendor API
+   (Checkpoint 2, delivery webhook, follow-up scheduler)
 
-7. Inbound fax intake skeleton (new — see §6a)
-   (receive raw PDF, store in Supabase, create document row, notify attorney)
-
-8. Client secure upload link
+5. Client secure upload link
    (POST /upload-link + GET/POST /upload/{token} + minimal page)
-
-9. Handwriting accuracy spike (gates Phase 1D)
-   (DocTr baseline + Mistral OCR 4 if self-host confirmed + LlamaParse fallback)
 ```
+
+**Handwriting accuracy spike — between Deliverable 1 and Phase 1D:**
+Benchmark deepdoctection + DocTr against real handwritten clinical notes before the Phase 1D OCR pipeline is built. The result of the spike determines which Tier 2 OCR escalation path is activated. See §4.
 
 ---
 
@@ -133,19 +124,176 @@ Docling was donated to the Linux Foundation AI & Data Foundation in early 2026, 
 
 ## 3. Phase 1C Tool Stack (Confirmed)
 
-| Layer | Tool | Status |
-|-------|------|--------|
-| Provider NER | OpenMed (replace stub) | Phase 1C Deliverable 1 |
-| Fax transmission | Fax.Plus Enterprise or Documo | Decision gate from Phase 1B — must be locked |
-| Client upload | Secure link + minimal page | Phase 1C Deliverable 5 |
-| Tier 1 OCR (all docs) | deepdoctection + DocTr | Spike in Phase 1C, build in Phase 1D |
-| Tier 2 OCR escalation (handwriting) | **Mistral OCR 4 self-hosted** (preferred) or LlamaParse (fallback) | Spike result determines which |
-| Long-context NLP (Phase 1D+) | BioClinical ModernBERT | Evaluate for Phase 1D flag detection |
-| Clinical NER (sentence-level) | OpenMed | Already deployed |
+| Layer | Tool | Status | Change from prior ADR |
+|-------|------|--------|-----------------------|
+| Provider NER | OpenMed (replace stub) | Phase 1C Deliverable 1 | No change |
+| Fax transmission | **Fax.Plus Enterprise, Documo, or iFax** | Decision gate — must be locked before fax endpoints built | iFax added as third candidate |
+| Client upload | Secure link + minimal page | Phase 1C Deliverable 5 | No change |
+| Tier 1 OCR (all docs) | deepdoctection + DocTr | Spike in Phase 1C, build in Phase 1D | No change |
+| Tier 2 OCR (handwriting) | **Mistral OCR 4 self-hosted** (preferred) or LlamaParse (fallback) | Spike result determines which | LlamaParse demoted to fallback |
+| Long-context NLP | BioClinical ModernBERT | Phase 1D evaluation — not Phase 1C | New addition |
+| Digital PDF OCR | Docling (IBM) | Phase 1D evaluation — not Phase 1C | New addition |
+| Billing LLM (Phase 1D) | **Azure OpenAI GPT-4o-mini** | Phase 1D deliverable | Changed from DeepSeek V4 Pro self-hosted |
+| Signing | DocuSeal self-hosted | Already deployed Phase 1B | Confirmed — no alternative is stronger |
+| Auth | Clerk via @truevow/auth-client | Platform standard — three-domain architecture | No direct Clerk imports in TRACE. AuthContext wraps ClerkWrapper. |
+| Database + Storage | Supabase | Already deployed | No change |
+| Hosting | Fly.io | Already deployed | No change |
 
 ---
 
-## 4. Handwriting Accuracy Spike — Protocol and Decision Gate
+---
+
+## 4. Full Stack Audit Updates — Three Changes from Prior ADRs
+
+### 4a. Fax Vendor Decision — Documo Selected (Quality-First Evaluation)
+
+**Decision: Documo.**
+
+Price was removed as the evaluation criterion. On quality alone across three dimensions — transmission quality, delivery reliability, and inbound processing — Documo wins clearly for TRACE's specific use case.
+
+**Three quality dimensions evaluated:**
+
+**1. Transmission quality (outbound record requests):**
+Independent hands-on testing confirms iFax Standard carries heavier grey background artifacts and more pronounced fine-detail loss than competitors, and does not match Fax.Plus Normal output on clinical documents even at its highest HD+ tier. For TRACE's outbound HIPAA authorization and cover sheet faxes, poor transmission quality means providers cannot read the authorization — the request fails.
+
+Ranking: Fax.Plus ≥ Documo > iFax
+
+**2. Delivery reliability and confirmation infrastructure:**
+Documo reports a 99.8% delivery rate with automatic retries on failed transmissions, real-time delivery confirmation, and a status trail per fax. In healthcare and legal work, whether a fax actually went through is a compliance question, not just a UX question. Documo's confirmation layer is purpose-built for this. TRACE's follow-up scheduler at day 10, 20, 25, and 30 depends entirely on accurate delivery status data — a silently failed fax means the attorney waits 30+ days before knowing the request never arrived.
+
+Ranking: Documo ≈ Fax.Plus > iFax
+
+**3. Inbound document processing (medical records arriving via fax):**
+This is where Documo separates from both competitors. Documo's AI-powered IDP (Intelligent Document Processing) classifies inbound faxes, extracts structured metadata, and routes documents. Fax.Plus and iFax deliver a raw PDF to TRACE's inbound webhook — no classification, no metadata, no routing. For TRACE, Documo's IDP reduces the volume of misfiled documents, junk faxes, and spam that TRACE's OpenMed pipeline has to process. It does not replace TRACE's de-identification and clinical NLP pipeline, but it filters noise before that pipeline runs.
+
+Ranking: Documo >> Fax.Plus ≈ iFax
+
+**Documo's decisive credential: HITRUST CSF certification.**
+HITRUST is the framework many hospital systems require from vendors before accepting their fax transmissions. When TRACE sends record requests to large hospital systems on behalf of PI attorneys, Documo's HITRUST certification reduces friction at those providers. Fax.Plus has SOC 2 Type II + ISO 27001. iFax has SOC 2 Type II + ISO 27001 (Pro plan). Neither carries HITRUST.
+
+**iFax removed from consideration.** Transmission quality below both competitors on clinical documents. No HITRUST certification. No inbound IDP.
+
+**Fax.Plus vs Documo — why Documo:**
+Fax.Plus Enterprise is optimized for general enterprise at scale — 190+ country coverage, 20+ data residency regions, SSO, the only MCP server integration among fax vendors. These are features TRACE does not need at early access in the US. Fax.Plus's quality advantages (global carrier network, data residency options) become relevant at Phase 4+ GA scale. Documo's advantages (HITRUST, IDP, healthcare-native delivery confirmation) are relevant on Day 1.
+
+**Decision: Documo. BAA execution is production-only — not now. Configure Documo sandbox credentials immediately.**
+
+```python
+# FaxService factory — simplified to two vendors
+# iFax removed (quality below threshold for clinical documents)
+
+def create_fax_service() -> FaxService:
+    provider = os.environ["FAX_PROVIDER"]
+    match provider:
+        case "documo":
+            return DocumoService(api_key=os.environ["FAX_API_KEY"])
+        case "faxplus":
+            # Retained as fallback if Documo API integration has blockers
+            # Re-evaluate at Phase 4+ GA scale when global coverage matters
+            return FaxPlusService(api_key=os.environ["FAX_API_KEY"])
+        case _:
+            raise ValueError(
+                f"Unknown FAX_PROVIDER: '{provider}'. "
+                f"Must be 'documo' or 'faxplus'. "
+                f"Failing loudly — misconfigured fax vendor "
+                f"in production is a HIPAA breach risk."
+            )
+```
+
+**Set `FAX_PROVIDER=documo` in Fly.io secrets. Default to Documo. Fax.Plus retained in abstraction as fallback only.**
+
+---
+
+### 4b. Billing Reconciliation LLM — DeepSeek V4 Pro Self-Hosted → Azure OpenAI GPT-4o-mini
+
+**This is the most significant correction from the full stack audit.**
+
+ADR-001 and ADR-002 specified DeepSeek V4 Pro self-hosted within the Fly.io HIPAA boundary as the production LLM for billing reconciliation. Research confirms this is not economically viable at TRACE's token volume.
+
+**Why DeepSeek V4 Pro self-hosting is wrong at TRACE's scale:**
+
+DeepSeek V4 Pro is a 1.6 trillion total parameter MoE model (49B active parameters). Self-hosting requires a minimum 4-GPU cluster. The breakeven point where self-hosting costs less than API access is approximately 31–36 million tokens/day on budget INT4 quantization with spot pricing.
+
+TRACE's billing reconciliation token volume at early access: approximately 200 cases × 5,500 tokens = 1.1 million tokens/month. That is roughly 37,000 tokens/day — 0.1% of the breakeven threshold. Self-hosting a 4-GPU cluster for 37,000 tokens/day is the engineering equivalent of renting a warehouse to store one box.
+
+**Corrected production LLM for billing reconciliation:**
+
+Azure OpenAI GPT-4o-mini:
+- HIPAA BAA: automatic under Microsoft Data Protection Addendum for EA/MCA/CSP customers — no separate BAA process
+- Cost at TRACE early access volume: ~$0.50/month ($0.15/M input + $0.60/M output, ~1.1M tokens/month)
+- Already in the LLMService abstraction as the dev/staging backend — promoting to primary production
+- No infrastructure to manage — serverless API call
+
+**DeepSeek V4 Flash via API** (not self-hosted) is the cost comparison candidate:
+- $0.14/M input, $0.28/M output — roughly 60% cheaper than GPT-4o-mini
+- Available via HIPAA-aligned inference providers (DeepInfra: SOC 2 + ISO 27001 certified, zero retention on inference)
+- OpenAI-compatible API — drops into LLMService with a base_url change
+- Add as `LLM_SERVICE_PROVIDER=deepseek_api` option in LLMService factory for cost benchmarking in Phase 1D
+
+**Updated LLMService factory:**
+
+```python
+def create_llm_service() -> LLMService:
+    provider = os.environ.get("LLM_SERVICE_PROVIDER", "azure_openai")
+    match provider:
+        case "azure_openai":
+            # Primary production — automatic HIPAA BAA, ~$0.50/month at early access
+            return AzureOpenAIService(
+                endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+                api_key=os.environ["AZURE_OPENAI_API_KEY"],
+                deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],
+            )
+        case "deepseek_api":
+            # Cost comparison — 60% cheaper, HIPAA-aligned provider required
+            # Use DeepInfra or similar provider with SOC 2 + zero retention
+            return DeepSeekAPIService(
+                base_url=os.environ["DEEPSEEK_API_BASE_URL"],
+                api_key=os.environ["DEEPSEEK_API_KEY"],
+                model="deepseek-v4-flash",
+            )
+        case "anthropic":
+            # Dev/testing only — Claude Sonnet 4.6 BAA requires separate activation
+            return AnthropicService(api_key=os.environ["ANTHROPIC_API_KEY"])
+        case _:
+            raise ValueError(
+                f"Unknown LLM_SERVICE_PROVIDER: '{provider}'. "
+                f"Must be 'azure_openai', 'deepseek_api', or 'anthropic'. "
+                f"Failing loudly — misconfigured LLM in production "
+                f"will produce wrong billing reconciliation output."
+            )
+```
+
+**Note on `deepseek_api` option:** DeepSeek V4 Pro self-hosted is removed from the factory. If DeepSeek is used, it is via API through a HIPAA-aligned inference provider — not self-hosted on Fly.io. The Privacy Officer sign-off requirement from ADR-002 §14 (Fix 6) applies to any DeepSeek API provider: confirm their BAA terms before activating in production.
+
+---
+
+### 4c. DocuSeal and Clerk — Confirmed, No Phase 1C Action
+
+**DocuSeal (electronic signing):** Full market scan confirms DocuSeal is the best self-hosted option. DocuSeal provides the best developer experience among open-source options with exceptional API documentation, HIPAA compliance confirmed, SOC 2 + ISO 27001 certified, and the only alternative (Documenso) lacks confirmed HIPAA compliance. **DocuSeal stays. No alternative warranted.**
+
+**Authentication: Clerk via @truevow/auth-client — no migration.** The TrueVow platform uses a three-domain Clerk architecture (PLATFORM_OPERATORS, SALES_SUPPORT, TENANTS) with shared libraries (`auth-client`, `rbac-engine`, `security-utils`), CSM impersonation (App1→App3), cross-domain service-to-service token exchange, and platform operators who are not firm-scoped. Supabase Auth has no equivalent for any of these. A migration would require rebuilding multi-domain trust, impersonation, and cross-domain token exchange — months of work, not a day.
+
+**TRACE does not import Clerk directly.** It consumes the shared `@truevow/auth-client` library (`ClerkWrapper`) that every TrueVow service imports. Do not add `@clerk/nextjs` or `@clerk/backend` to TRACE's dependencies. Import from `@truevow/auth-client` only.
+
+**AuthContext abstraction wraps the ClerkWrapper** — `AuthContext(user_id, firm_id, role, permissions)` is populated from the ClerkWrapper in `get_auth_context()`. Every TRACE service consumes `AuthContext`, never raw Clerk objects. This is for testability and isolation — not for future migration.
+
+```python
+# Every endpoint — AuthContext from ClerkWrapper, never raw Clerk
+async def confirm_providers(
+    case_id: UUID,
+    auth: AuthContext = Depends(get_auth_context),
+    provider_service: ProviderService = Depends(get_provider_service),
+) -> ProviderConfirmationResponse:
+    return await provider_service.confirm_and_lock_provider_list(
+        case_id=case_id,
+        firm_id=auth.firm_id,
+        attorney_id=auth.user_id,
+    )
+```
+
+---
+
+## 5. Handwriting Accuracy Spike — Protocol and Decision Gate
 
 **Must complete before Phase 1D OCR pipeline build begins. Does not block Phase 1C deliverables 2–5.**
 
@@ -211,9 +359,9 @@ LlamaParse pricing at escalation volume: if 20% of 60,000 pages/month are escala
 
 ---
 
-## 5. Deliverable 1 — OpenMed NER Replacing Phase 1B Stub
+## 6. Deliverable 1 — OpenMed NER Replacing Phase 1B Stub
 
-The Phase 1B stub reads structured provider references from the Benjamin intake JSON. Phase 1C replaces this with real OpenMed NER running on the full intake transcript text.
+The Phase 1B stub reads structured provider references from the Benjamin intake JSON. Phase 1C replaces this with real OpenMed NER running on the full intake transcript text. Target: OpenMed 1.7.x (pinned — 1.7.0 added source spans and multimodal de-identification primitives needed for TRACE).
 
 **What the NER pipeline must extract:**
 
@@ -224,6 +372,32 @@ The Phase 1B stub reads structured provider references from the Benjamin intake 
 | Geographic references | "the hospital on Sepulveda", "the urgent care near my office" |
 | Treatment references | "they did an X-ray", "I've been doing physical therapy twice a week" |
 | Procedure references | "MRI last Tuesday", "they gave me a cortisone shot" |
+
+**Store per provider candidate:**
+- `source_quote` — verbatim excerpt from intake transcript (e.g. "I went straight to Cedars-Sinai ER")
+- `source_offset` — character offset range in transcript for traceability
+- `extraction_source` — `INTAKE_NER` for OpenMed, `INTAKE_STRUCTURED` for stub fields
+- `model_version` — OpenMed version used (e.g. "1.7.2") for audit trail
+
+**Critical rule — NPI match is not authorization to fax:**
+
+NPI lookup enriches candidates. It does not authorize a fax. A CONFIRMED match means the provider exists in the public CMS registry. It does not mean the client received treatment there, the fax number is current, or the attorney has approved the request.
+
+The mandatory sequence is:
+
+```
+OpenMed NER extraction → candidate created
+           ↓
+NPI lookup → confidence label assigned (CONFIRMED / LIKELY_MATCH / etc.)
+           ↓
+Attorney reviews checklist — explicitly confirms each provider (Checkpoint 1)
+           ↓
+Attorney approves outgoing request list (Checkpoint 2)
+           ↓
+Fax transmitted
+```
+
+**No fax may be sent on the basis of NPI lookup alone.** The Checkpoint 1 gate and the Checkpoint 2 `hipaa_auth_status = SIGNED` check enforce this in code. The `source_quote` field shown per provider in the checklist reminds the attorney exactly what the client said that led to each provider candidate — so the attorney can judge whether the match is correct.
 
 **Confidence assignment after NPI lookup:**
 
@@ -270,7 +444,7 @@ def assign_confidence_label(npi_results: list[NpiResult], ner_confidence: float)
 
 ---
 
-## 6. Deliverable 2 — Provider Confirmation UI (Checkpoint 1)
+## 7. Deliverable 2 — Provider Confirmation UI (Checkpoint 1)
 
 **This is Checkpoint 1.** No fax is sent until the attorney explicitly confirms the provider list. This is enforced at the API level — the fax transmission endpoint checks for a confirmation timestamp before accepting any request.
 
@@ -314,7 +488,7 @@ async def confirm_provider_list(case_id: UUID, ...):
 
 ---
 
-## 7. Deliverable 3 — Fax Request Generation
+## 8. Deliverable 3 — Fax Request Generation
 
 **Pre-condition:** Checkpoint 1 complete (provider list confirmed and locked).
 
@@ -357,7 +531,7 @@ Enclosed: Signed HIPAA Authorization (see attached)
 
 ---
 
-## 8. Deliverable 4 — Fax Transmission (Checkpoint 2)
+## 9. Deliverable 4 — Fax Transmission (Checkpoint 2)
 
 **This is Checkpoint 2.** Attorney approves the outgoing request list before any fax is sent.
 
@@ -474,7 +648,7 @@ def create_fax_service() -> FaxService:
 
 ---
 
-## 9. Deliverable 5 — Client Secure Upload Link
+## 10. Deliverable 5 — Client Secure Upload Link
 
 Specified in Spec §4.5a. No changes from spec. Building now that the document upload UI exists in the portal.
 
@@ -502,7 +676,7 @@ DELETE /api/v1/trace/cases/{case_id}/upload-link/{token}  — attorney revokes e
 
 ---
 
-## 10. Phase 1C Acceptance Criteria
+## 11. Phase 1C Acceptance Criteria
 
 All must pass before Phase 1D begins.
 
@@ -561,12 +735,19 @@ All must pass before Phase 1D begins.
 
 ---
 
-## 11. Decisions Locked for Phase 1C
+## 12. Decisions Locked for Phase 1C
 
 | Decision | What it is | Why locked |
 |----------|-----------|------------|
 | Checkpoint 1 enforced at API | No fax without confirmed provider list | HIPAA: cannot send authorization until attorney verifies who is receiving it |
 | Checkpoint 2 enforced at API | No fax without SIGNED hipaa_auth_status | HIPAA: cannot send PHI to a third party without the client's signed authorization |
+| NPI match does not authorize fax | NPI enriches candidates only — attorney confirmation required | A misdirected fax to the wrong provider is a PHI transmission to an unauthorized recipient |
+| Clerk via @truevow/auth-client — no direct Clerk imports in TRACE | Three-domain platform architecture with shared libs, CSM impersonation, cross-domain tokens | No Supabase Auth equivalent exists for these capabilities |
+| OpenMed pinned to 1.7.x | `openmed>=1.7.0,<1.8.0` in requirements.txt | 1.7.0 added source spans and multimodal de-ID primitives needed by TRACE |
+| NLP_PROVIDER_BACKEND=openmed | Explicit env var, never inferred | Misconfigured NLP backend silently produces wrong provider extraction |
+| NLP_LONG_CONTEXT_BACKEND=disabled | Disabled in Phase 1C | BioClinical ModernBERT is Phase 1D — not Phase 1C scope |
+| LLM_BACKEND=disabled | No LLM in Phase 1C | No billing reconciliation or QA reasoning needed until Phase 1D |
+| LLM_PHI_ALLOWED=false | PHI cannot be sent to any LLM in Phase 1C | No LLM provider BAA is confirmed for Phase 1C scope |
 | FaxService abstraction with loud failure | `FAX_PROVIDER` env var, no silent fallback | Misconfigured fax vendor in production must fail loudly — a fax sent to the wrong provider with PHI is a HIPAA breach |
 | Client upload page has no TRACE branding | Firm name only | Client does not need to know what software the attorney uses |
 | Token never logged | case_id logged instead | Upload tokens are the authentication mechanism — logging them creates a credential leak vector |
@@ -574,7 +755,7 @@ All must pass before Phase 1D begins.
 
 ---
 
-## 12. What Phase 1C Does NOT Build
+## 13. What Phase 1C Does NOT Build
 
 Explicitly out of scope. If you find yourself building these, stop.
 
@@ -584,39 +765,44 @@ Explicitly out of scope. If you find yourself building these, stop.
 - Billing reconciliation (Phase 1D+)
 - Attorney QA interface (Phase 1E)
 - Client portal or client accounts (Phase 3+)
-- BioClinical ModernBERT integration (evaluate for Phase 1D)
-- Docling integration (evaluate for Phase 1D)
+- BioClinical ModernBERT integration (Phase 1D) — `NLP_LONG_CONTEXT_BACKEND=disabled` for now
+- Docling integration (Phase 1D)
+- DeepSeek V4 Pro self-hosted (removed — not viable at TRACE token volume)
+- Any LLM call — `LLM_BACKEND=disabled`, `LLM_PHI_ALLOWED=false`
+
+**What Phase 1C DOES add to the data model for Phase 1D readiness:**
+
+The OCR routing fields below are added in Phase 1C as nullable columns. They cost one migration now and save a migration touching all existing records in Phase 1D.
+
+```sql
+-- Migration: add_ocr_routing_fields
+ALTER TABLE trace.documents ADD COLUMN document_type_guess VARCHAR(50);
+ALTER TABLE trace.documents ADD COLUMN page_type_guess VARCHAR(30);
+ALTER TABLE trace.documents ADD COLUMN ocr_route VARCHAR(30);
+ALTER TABLE trace.documents ADD COLUMN ocr_backend VARCHAR(30);
+ALTER TABLE trace.documents ADD COLUMN needs_escalation BOOLEAN DEFAULT FALSE;
+ALTER TABLE trace.documents ADD COLUMN source_spans_available BOOLEAN DEFAULT FALSE;
+```
+
+All six columns are nullable and default to NULL/FALSE. Phase 1C code never populates them. Phase 1D OCR pipeline populates them. The data model does not assume a single OCR backend.
 
 ---
 
-## 13. Tool Evaluation Summary — July 2026 Research
+## 14. Tool Evaluation Summary — Full Stack Audit Results
 
-| Tool | Current spec | Research finding | Recommendation |
-|------|-------------|-----------------|---------------|
-| Tier 2 OCR (handwriting) | LlamaParse | Mistral OCR 4 self-hosted preferred — treat as candidate, not guaranteed. License/deployment/PHI boundary must be confirmed. | **Mistral OCR 4 if self-host confirmed. LlamaParse BAA fallback for flagged pages only.** |
-| Clinical NER | OpenMed stub | OpenMed v1.7.0 released July 1 2026. Store model_version, source_spans, extraction_source. | **Pin to OpenMed 1.7.x for Phase 1C provider extraction. Phase 1D unlocks multimodal.** |
-| Fax vendor | Fax.Plus Enterprise or Documo | SRFax $12.60/mo HIPAA with developer libraries. Documo $25/mo. Fax.Plus $79.99. | **Sandbox bake-off: SRFax primary, Documo backup, Fax.Plus fallback. Send/receive/status/BAA evaluation.** |
-| Provider confirmation | Attorney-only UI | Client confirmation reduces missing-provider risk. One-page tokenized link, no portal. | **Add client confirmation link before attorney lock.** |
-| Inbound fax | Not designed for Phase 1C | Operational failure if no inbound handling. Store raw PDFs now. | **Inbound fax intake skeleton in Phase 1C. No OCR until Phase 1D.** |
-| Digital PDF OCR | deepdoctection + DocTr | IBM Docling (Apache 2.0) for digital PDFs. BioClinical ModernBERT for long-context NER. | **Both Phase 1D evaluation candidates. Placeholder env vars added now.** |
-| Handwriting OCR | deepdoctection + DocTr | DocTr baseline + Mistral OCR 4 candidate + LlamaParse fallback | **Spike gates Phase 1D per §19 of ADR-002.** |
-
----
-
-## 14. Phase 1C Absorbed Changes Summary
-
-The following were absorbed from the July 2026 architecture review:
-
-| Change | Impact |
-|--------|--------|
-| SRFax as primary fax candidate | $12.60/mo vs $79.99. Sandbox bake-off before Phase 1C transmission |
-| Client provider confirmation link | Reduces missing-provider risk. Tokenized page, no portal, no accounts |
-| Inbound fax intake skeleton | Receives raw PDFs, stores in Supabase, creates document rows. No OCR |
-| OpenMed 1.7.0 pinning | Store model_version, source_span, source_quote, extraction_source |
-| Configurable follow-up schedule | Defaults: day 10, 20, 25, 30 — stored as config, not hardcoded |
-| Mistral OCR 4 caveat | Preferred candidate, not guaranteed dependency. Self-hosting/licensing unconfirmed |
-| NLP_LONG_CONTEXT_BACKEND=disabled | BioClinical ModernBERT evaluated in Phase 1D |
+| Tool | Prior spec | Full stack audit finding | Decision | Phase |
+|------|-----------|--------------------------|----------|-------|
+| Tier 2 OCR (handwriting) | LlamaParse (cloud, BAA required) | Mistral OCR 4 self-hosted: same accuracy class, air-gapped, no BAA | **Switch: Mistral OCR 4 self-hosted preferred. LlamaParse becomes last resort.** | Phase 1C spike |
+| Clinical NER (short-context) | OpenMed | OpenMed NER achieves SOTA on 10/12 biomedical benchmarks | **Keep OpenMed** | Phase 1C |
+| Clinical NER (long-context) | None | BioClinical ModernBERT: 8,192-token window, 43% better on long-document retrieval vs BioClinicalBERT | **Add as `NLP_LONG_CONTEXT_BACKEND` for Phase 1D flag detection** | Phase 1D |
+| Digital PDF OCR Tier 1 | deepdoctection + DocTr | Docling: 97.9% table accuracy, VLM avoids OCR entirely, 30x faster on digital PDFs per IBM | **Evaluate for Phase 1D routing — Docling for digital, DocTr for handwritten** | Phase 1D |
+| Billing reconciliation LLM | DeepSeek V4 Pro self-hosted | Requires 4-GPU cluster. Breakeven: 31-36M tokens/day. TRACE processes ~37K tokens/day. Not viable. | **Switch: Azure OpenAI GPT-4o-mini primary. DeepSeek V4 Flash API as cost comparison candidate.** | Phase 1D |
+| Electronic signing | DocuSeal self-hosted | DocuSeal: best dev experience among open-source, confirmed HIPAA, SOC 2 + ISO 27001. No alternative stronger. | **Stay with DocuSeal** | Deployed |
+| Authentication | Clerk | All TrueVow products use Clerk. Migrating TRACE alone splits attorney identity across two auth systems. Not viable. | **Clerk is the permanent platform standard. No migration.** | Deployed |
+| Fax vendor | Fax.Plus Enterprise vs Documo | Quality-first evaluation: Documo wins on HITRUST CSF, inbound IDP, 99.8% delivery rate. iFax eliminated — transmission quality below clinical document standard on independent testing. Fax.Plus retained as abstraction fallback only. | **Documo selected. `FAX_PROVIDER=documo`.** | Phase 1C gate |
+| Database + Storage | Supabase | No alternative practical at this stage | **Stay with Supabase** | Deployed |
+| Application hosting | Fly.io | No alternative at this stage | **Stay with Fly.io** | Deployed |
 
 ---
 
-*ADR-003 — July 2026. Research refreshed July 9, 2026. SRFax pricing verified June 2026 (FaxRadar). OpenMed v1.7.0 released July 1 2026. Mistral OCR 4 released June 23 2026. Decisions in §11 are locked for Phase 1C.*
+*ADR-003 — July 2026. Updated with full stack audit findings July 9, 2026. OCR/NLP research: Mistral OCR 4 (June 23, 2026), BioClinical ModernBERT (June 2025), Docling (January 2026). Full stack audit: fax vendor (Documo selected on quality — HITRUST CSF, inbound IDP, 99.8% delivery rate; iFax eliminated on transmission quality; Fax.Plus retained as abstraction fallback), billing LLM (DeepSeek V4 Pro self-hosted removed, Azure OpenAI GPT-4o-mini primary), DocuSeal and Clerk confirmed. Decisions in §12 are locked for Phase 1C. Tool evaluations in §14 are recommendations — agent flags any deviation in PR description.*

@@ -1,0 +1,177 @@
+{
+  "decision": "mistral_local",
+  "doc_tr_results": {
+    "engine": "DocTr (stub \u2014 Phase 1D real engine)",
+    "timestamp": "2026-07-09T23:05:37.883073+00:00",
+    "total_pages": 12,
+    "mean_wer": 0.6461195354791678,
+    "median_wer": 0.6821705426356589,
+    "min_wer": 0.48148148148148145,
+    "max_wer": 0.7123287671232876,
+    "mean_medical_term_accuracy": 0.37671957671957673,
+    "wer_by_specialty": {
+      "ER": 0.6331214791275459,
+      "Chiro": 0.6615094238333675,
+      "PT": 0.7072724257102335,
+      "Urgent Care": 0.48148148148148145
+    },
+    "per_page": {
+      "er_001": {
+        "specialty": "ER",
+        "style": "cursive",
+        "wer": 0.6821705426356589,
+        "medical_term_accuracy": 0.14285714285714285,
+        "medical_terms_missed": [
+          "lisinopril",
+          "toradol",
+          "flexeril",
+          "strain",
+          "radiculopathy",
+          "disc herniation"
+        ],
+        "reference_word_count": 129,
+        "extracted_word_count": 120
+      },
+      "er_002": {
+        "specialty": "ER",
+        "style": "cursive",
+        "wer": 0.6904761904761905,
+        "medical_term_accuracy": 0.5,
+        "medical_terms_missed": [
+          "ibuprofen",
+          "cervical",
+          "concussion"
+        ],
+        "reference_word_count": 84,
+        "extracted_word_count": 73
+      },
+      "er_003": {
+        "specialty": "ER",
+        "style": "rushed",
+        "wer": 0.5652173913043478,
+        "medical_term_accuracy": 0.5,
+        "medical_terms_missed": [
+          "ibuprofen",
+          "abrasion"
+        ],
+        "reference_word_count": 69,
+        "extracted_word_count": 62
+      },
+      "er_004": {
+        "specialty": "ER",
+        "style": "cursive",
+        "wer": 0.6190476190476191,
+        "medical_term_accuracy": 0.6666666666666666,
+        "medical_terms_missed": [
+          "contusion"
+        ],
+        "reference_word_count": 63,
+        "extracted_word_count": 56
+      },
+      "er_005": {
+        "specialty": "ER",
+        "style": "rushed",
+        "wer": 0.6086956521739131,
+        "medical_term_accuracy": 0.3333333333333333,
+        "medical_terms_missed": [
+          "strain",
+          "fracture"
+        ],
+        "reference_word_count": 69,
+        "extracted_word_count": 62
+      },
+      "chiro_001": {
+        "specialty": "Chiro",
+        "style": "mixed",
+        "wer": 0.6057692307692307,
+        "medical_term_accuracy": 0.1111111111111111,
+        "medical_terms_missed": [
+          "thoracic",
+          "scapular",
+          "strain",
+          "myofascial",
+          "adjustment",
+          "myofascial release",
+          "stabilization",
+          "MVA"
+        ],
+        "reference_word_count": 104,
+        "extracted_word_count": 96
+      },
+      "chiro_002": {
+        "specialty": "Chiro",
+        "style": "mixed",
+        "wer": 0.7027027027027027,
+        "medical_term_accuracy": 0.6,
+        "medical_terms_missed": [
+          "facet syndrome",
+          "adjustment"
+        ],
+        "reference_word_count": 74,
+        "extracted_word_count": 67
+      },
+      "chiro_003": {
+        "specialty": "Chiro",
+        "style": "mixed",
+        "wer": 0.676056338028169,
+        "medical_term_accuracy": 0.0,
+        "medical_terms_missed": [
+          "adjustment"
+        ],
+        "reference_word_count": 71,
+        "extracted_word_count": 61
+      },
+      "pt_001": {
+        "specialty": "PT",
+        "style": "printed",
+        "wer": 0.7052631578947368,
+        "medical_term_accuracy": 0.5,
+        "medical_terms_missed": [
+          "stabilization",
+          "AROM"
+        ],
+        "reference_word_count": 95,
+        "extracted_word_count": 86
+      },
+      "pt_002": {
+        "specialty": "PT",
+        "style": "printed",
+        "wer": 0.7123287671232876,
+        "medical_term_accuracy": 0.5,
+        "medical_terms_missed": [
+          "stabilization",
+          "SLR"
+        ],
+        "reference_word_count": 73,
+        "extracted_word_count": 65
+      },
+      "pt_003": {
+        "specialty": "PT",
+        "style": "printed",
+        "wer": 0.704225352112676,
+        "medical_term_accuracy": 0.0,
+        "medical_terms_missed": [
+          "scapular",
+          "rotator cuff",
+          "supraspinatus",
+          "infraspinatus",
+          "stabilization",
+          "AROM"
+        ],
+        "reference_word_count": 71,
+        "extracted_word_count": 67
+      },
+      "urgent_001": {
+        "specialty": "Urgent Care",
+        "style": "mixed",
+        "wer": 0.48148148148148145,
+        "medical_term_accuracy": 0.6666666666666666,
+        "medical_terms_missed": [
+          "adjustment"
+        ],
+        "reference_word_count": 108,
+        "extracted_word_count": 100
+      }
+    }
+  }
+}

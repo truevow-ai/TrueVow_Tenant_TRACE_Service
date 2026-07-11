@@ -193,6 +193,26 @@ Acceptance criteria:
 - Where multiple matches exist: surfaces top 3 for attorney selection
 - Where no match found: surfaces as "Not found — attorney entry required"
 
+**NPI match is not authorization to fax — this rule must never be violated:**
+
+NPI lookup is candidate enrichment only. It does not authorize a fax transmission. A confirmed NPI match means the provider exists in the public CMS registry. It does not confirm the client received treatment from this specific provider, that the fax number is current and correct, or that the attorney has reviewed and approved this provider for record requests. The distinction matters because a misdirected fax to the wrong provider is a PHI transmission to an unauthorized recipient — a HIPAA incident.
+
+The mandatory sequence is:
+
+```
+NPI lookup → candidate with confidence label
+                      ↓
+         Attorney reviews confirmation checklist
+                      ↓
+         Attorney explicitly confirms each provider
+                      ↓
+         Attorney approves outgoing request list (Checkpoint 2)
+                      ↓
+         Fax transmitted
+```
+
+No fax is ever sent on the basis of NPI lookup alone. The Checkpoint 1 gate and the Checkpoint 2 gate (`hipaa_auth_status = SIGNED`) enforce this in code. The rule is also stated in the Attorney Responsibility Addendum.
+
 **5.1.3 Provider confirmation checklist**
 - Displays pre-populated provider list to attorney in portal
 - Attorney actions per provider: Confirm / Edit / Remove / Add new
@@ -338,8 +358,32 @@ The healthcare attorney must review the signing package for each target state. S
 - OCR processing for all incoming documents (digital PDF and scanned)
 - Handwritten note handling: best-effort OCR with attorney flag for manual review where confidence is below threshold
 - Document type classification: ER records / imaging reports / PT/OT notes / specialist notes / primary care / billing / pharmacy / other
-- Duplicate detection: flags pages that appear in multiple incoming batches
+- Duplicate detection: SHA256 hash comparison against all existing documents in the case — exact duplicates flagged, attorney confirms before removal
 - Misfiled documents: flags documents that appear to relate to a different patient or date range
+- Source provenance tracked per document: PROVIDER_FAX / ATTORNEY_UPLOAD / CLIENT_UPLOAD / SCAN / DOCUSEAL_SIGNED
+
+**5.4.1a Document intake paths**
+
+TRACE accepts documents through three paths in Phase 1:
+
+**Path 1 — Provider fax (primary):** Incoming fax from healthcare provider via cloud fax inbox. Linked to case via TRACE reference number on the cover sheet. Source = PROVIDER_FAX. This is the authoritative copy when duplicates exist.
+
+**Path 2 — Attorney manual upload:** Attorney downloads document from client text/email or receives physical copy, scans it, and uploads via the TRACE portal document upload. Source = ATTORNEY_UPLOAD.
+
+**Path 3 — Client secure upload link (Phase 1C):** Attorney generates a one-time upload URL from the TRACE portal and sends it to the client via text or email. Client opens the link on their phone — no account, no password, no TRACE portal access. Client takes a photo or chooses a file and submits. Document lands directly in the case file. Link expires after 48 hours or when attorney revokes it. Source = CLIENT_UPLOAD.
+
+The client upload path does not require building a client portal. It is a single expiring URL per case with a minimal upload page showing only the firm name and the attorney's label. The client never knows what software the attorney uses.
+
+**5.4.1b Deduplication**
+
+When the same document arrives via multiple paths (provider fax and client email scan of the same record), TRACE detects the duplicate and surfaces it for attorney review:
+
+- SHA256 hash computed for every incoming document immediately after storage
+- Hash compared against all existing document hashes for the same case
+- Exact match found: incoming document flagged as DUPLICATE. Attorney sees both copies with their source labels and confirms which to keep
+- No document is ever auto-deleted — attorney must confirm
+- Near-duplicate detection (same content, different scan quality) is Phase 2 scope
+- Provider fax copy is always the authoritative copy when duplicates exist — attorney confirmation reflects this as the default recommendation, not a hard rule
 
 **5.4.2 Indexing**
 - All processed documents indexed by: provider, facility, document type, date range, page count
@@ -1099,15 +1143,17 @@ Ordered list of all clinical events across all providers. Each entry contains:
 |-------|-------------|
 | Document ID | Unique identifier |
 | Case ID | Foreign key to cases table |
-| Provider ID | Foreign key to providers table |
+| Provider ID | Foreign key to providers table — null for client-uploaded documents not yet linked to a provider |
 | Storage key | Supabase Storage object key (case_id/document_id — no PII) |
+| Source | PROVIDER_FAX / ATTORNEY_UPLOAD / CLIENT_UPLOAD / SCAN / DOCUSEAL_SIGNED / UNKNOWN — tracks provenance for deduplication and audit trail |
+| SHA256 hash | Computed after storage. Used for exact duplicate detection within the case. Never null after processing |
 | Document type | ER / IMAGING / PT / BILLING / PHARMACY / SPECIALIST / OTHER |
 | Page count | Total pages |
 | Received at | Timestamp of receipt |
 | OCR status | PENDING / PROCESSING / COMPLETE / FAILED |
 | OCR confidence | Mean confidence score across all pages |
 | Quality flags | Array of zero or more transparency indicators: LOW_OCR_CONFIDENCE / HANDWRITTEN_NOTE_DETECTED / POSSIBLE_DUPLICATE / PAGE_ORDER_UNCERTAIN / LANGUAGE_NOT_ENGLISH / MISSING_PAGE_NUMBER / POOR_SCAN_QUALITY / NEEDS_MANUAL_REVIEW. These are not error states — they indicate where TRACE is uncertain and direct attorney manual review to pages that need it |
-| Is duplicate | Boolean — flagged if pages appear in multiple incoming batches |
+| Is duplicate | Boolean — set by dedup job when SHA256 hash matches existing document in the same case. Never auto-removed — requires attorney confirmation |
 | Is misfiled | Boolean — flagged if document appears to relate to a different patient or date range |
 
 **Entity 3 — Event Nodes**

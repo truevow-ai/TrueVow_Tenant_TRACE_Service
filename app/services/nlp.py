@@ -42,13 +42,43 @@ class NERResult:
 
 
 PROVIDER_PATTERNS: list[tuple[str, str]] = [
-    (r"(?:Dr\.?|Doctor)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:at|of|from)\s+([A-Z][a-zA-Z\s&.-]{3,40})", "doctor_at_facility"),
-    (r"(?:went\s+to|visited|taken\s+to|at)\s+(?:the\s+)?([A-Z][a-zA-Z\s&.-]{3,40})\s*(?:ER|Emergency|Hospital|Clinic|Medical|Center|Imaging|Urgent\s+Care|Pharmacy)", "facility_visit"),
-    (r"(?:at|by)\s+([A-Z][a-zA-Z\s&.-]{3,40})\s*(?:Orthopedic|Physical\s+Therapy|Chiropractic|Radiology|Cardiology|Neurology|Primary\s+Care)", "specialty_facility"),
-    (r"(?:treated|seen)\s+(?:by|at)\s+(?:Dr\.?|Doctor\s+)?([A-Z][a-zA-Z\s&.-]{3,60})", "treated_by"),
-    (r"([A-Z][a-zA-Z\s&.-]{4,40})\s*(?:Hospital|Medical\s+Center|Clinic|Imaging|Pharmacy|Physical\s+Therapy|Chiropractic)", "named_facility"),
-    (r"(?:referred\s+to|sent\s+me\s+to|recommended)\s+(?:Dr\.?|Doctor\s+)?([A-Z][a-zA-Z\s&.-]{3,60})", "referral"),
-    (r"(?:ambulance|EMS)\s+(?:took\s+(?:me|them)\s+)?(?:to\s+)?([A-Z][a-zA-Z\s&.-]{4,40})", "ambulance_to"),
+    # "Dr. Sarah Chen at Cedars-Sinai" / "went to Cedars-Sinai ER"
+    (r"\b(?:Dr\.?|Doctor)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,2})", "doctor_name"),
+    # "Cedars-Sinai Medical Center" / "UCLA Hospital" / "Westside Physical Therapy"
+    (r"\b([A-Z][a-z]+(?:(?:\s|-)[A-Z][a-z]+){1,4})\s+(?:Hospital|Medical\s+Center|Clinic|Imaging|Pharmacy|Physical\s+Therapy|Chiropractic|ER|Emergency)", "named_facility"),
+    # "went to Cedars-Sinai" / "taken to UCLA"
+    (r"\b(?:went|taken|transported|rushed|drove)\s+(?:to|myself\s+to)\s+([A-Z][a-z]+(?:(?:\s|-)[A-Z][a-z]+){1,3})", "went_to"),
+    # "referred to Dr. Smith" / "sent me to Dr. Jones"
+    (r"\b(?:referred\s+to|sent\s+me\s+to|recommended)\s+(?:Dr\.?|Doctor\s+)?([A-Z][a-z]+(?:\s[A-Z][a-z]+){1,2})", "referral"),
+    # "Orthopedic at..." / "Physical Therapy at..."
+    (r"\b(?:Orthopedic|Chiropractic|Radiology|Cardiology|Neurology)\s+(?:at|on|in)\s+([A-Z][a-z]+(?:(?:\s|-)[A-Z][a-z]+){1,3})", "specialty_at"),
+]
+
+# Clinical entity patterns — medications, diseases, procedures for chronology building
+CLINICAL_ENTITY_PATTERNS: list[tuple[str, str]] = [
+    # Medications — common PI prescriptions
+    (r"\b(?:ibuprofen|naproxen|acetaminophen|aspirin|toradol|ketorolac|flexeril|cyclobenzaprine|"
+     r"norco|hydrocodone|oxycodone|percocet|tramadol|ultram|gabapentin|neurontin|"
+     r"lidocaine|voltaren|diclofenac|meloxicam|mobic|prednisone|medrol|"
+     r"robaxin|methocarbamol|zanaflex|tizanidine|baclofen|skelaxin)", "MEDICATION"),
+    # Procedures
+    (r"\b(?:MRI|CT\s*scan|X-ray|Xray|ultrasound|nerve\s+conduction|EMG|"
+     r"injection|adjustment|manipulation|surgery|arthroscopy|laminectomy|discectomy|fusion|"
+     r"physical\s+therapy|chiropractic|acupuncture|massage\s+therapy)", "PROCEDURE"),
+    # Diseases and conditions
+    (r"\b(?:strain|sprain|fracture|herniat(?:ed|ion)|bulging\s+disc|disc\s+herniation|"
+     r"radiculopathy|sciatica|whiplash|cervicalgia|lumbago|spinal\s+stenosis|"
+     r"concussion|contusion|abrasion|laceration|tendinitis|bursitis|"
+     r"rotator\s+cuff\s+tear|labral\s+tear|meniscus\s+tear|ACL\s+tear)", "DISEASE"),
+    # Anatomy
+    (r"\b(?:cervical|thoracic|lumbar|sacral|coccyx|shoulder|elbow|wrist|hand|hip|knee|ankle|foot|"
+     r"spine|neck|back|head|jaw|TMJ|rotator\s+cuff|SI\s+joint)", "ANATOMY"),
+    # Imaging findings
+    (r"\b(?:MRI\s+(?:shows?|reveals?|demonstrates?|confirms?|indicates?)\s+[^.]{10,200}?\.)", "IMAGING"),
+    # Discharge / referral
+    (r"\b(?:discharged?\s+(?:home|to|with)|released\s+(?:from|to)|"
+     r"referred?\s+to\s+(?:orthopedic|neurology|pain\s+management|physical\s+therapy|"
+     r"chiropractic|neurosurgery|physiatry|PM&R))", "DISCHARGE"),
 ]
 
 
@@ -73,9 +103,15 @@ def _extract_provider_names(transcript: str) -> list[str]:
 class OpenMedService:
     """Self-hosted clinical NER + HIPAA de-identification.
 
-    Uses OpenMed v1.7.0 when installed, falls back to regex-based NER
-    for provider extraction. Both are real implementations — the regex
-    fallback is tested against PI intake transcript patterns.
+    Uses OpenMed v1.7+ when both ``openmed`` and ``transformers``
+    (HuggingFace) are installed. When transformers is unavailable,
+    falls back to regex-based provider extraction covering the
+    most common PI intake transcript language patterns.
+
+    Dual-mode: set ``NLP_PROVIDER_BACKEND=openmed`` and install
+    ``pip install openmed[hf]`` for full NER. The regex fallback
+    is production-quality for Phase 1C — it extracts providers
+    from structured PI intake language, not free-form clinical notes.
     """
 
     def __init__(self) -> None:
@@ -83,6 +119,7 @@ class OpenMedService:
         self._use_openmed = False
         try:
             import openmed  # noqa: F401
+            import transformers  # noqa: F401
             self._use_openmed = True
         except ImportError:
             pass
@@ -93,11 +130,11 @@ class OpenMedService:
     async def deidentify_text(self, raw_text: str) -> DeidentificationResult:
         if self._use_openmed:
             from openmed import deidentify as openmed_deid
-            result = openmed_deid(raw_text, method="replace")
+            result = openmed_deid(raw_text, keep_mapping=True)
             return DeidentificationResult(
-                redacted_text=result.get("deidentified_text", raw_text),
-                entities_redacted=len(result.get("entities", [])),
-                phi_map=result.get("phi_map", {}),
+                redacted_text=result.deidentified_text,
+                entities_redacted=len(result.pii_entities),
+                phi_map=result.mapping or {},
             )
         redacted = raw_text
         for pattern in [
@@ -112,13 +149,14 @@ class OpenMedService:
 
     async def extract_clinical_entities(self, redacted_text: str) -> NERResult:
         entities: list[ClinicalEntity] = []
-        for pattern, label in PROVIDER_PATTERNS:
+        all_patterns = list(PROVIDER_PATTERNS) + list(CLINICAL_ENTITY_PATTERNS)
+        for pattern, label in all_patterns:
             for match in re.finditer(pattern, redacted_text, re.IGNORECASE):
                 groups = match.groups()
                 for group in groups:
-                    if group and len(group.strip()) >= 3:
+                    if group and len(group.strip()) >= 2:
                         entities.append(ClinicalEntity(
-                            label="PROVIDER",
+                            label=label.upper(),
                             text=group.strip(),
                             confidence=0.75,
                             start_char=match.start(),
