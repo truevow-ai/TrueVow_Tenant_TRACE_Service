@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir \
 
 RUN python -c "import openmed; import pytesseract; print('OpenMed OK'); print('Tesseract OK'); print('ALL OK')"
 
+RUN echo "$(date) spike included"
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
