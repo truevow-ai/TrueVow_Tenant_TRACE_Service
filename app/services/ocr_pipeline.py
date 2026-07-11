@@ -113,7 +113,7 @@ def _run_mistral_ocr(image) -> tuple[str, float]:
     try:
         import base64
 
-        from mistralai import Mistral
+        from mistralai.client import Mistral
 
         api_key = os.environ.get("MISTRAL_API_KEY", "")
         server_url = os.environ.get("MISTRAL_OCR_URL", "")
@@ -148,10 +148,14 @@ def _run_mistral_ocr(image) -> tuple[str, float]:
         )
 
         text_parts: list[str] = []
+        confidences: list[float] = []
         if response.pages:
             for page in response.pages:
                 text_parts.append(page.markdown)
-        return "\n".join(text_parts), 0.95
+                if page.confidence_scores:
+                    confidences.append(page.confidence_scores.average_page_confidence_score)
+        mean_conf = sum(confidences) / len(confidences) if confidences else 0.95
+        return "\n".join(text_parts), mean_conf
 
     except Exception as exc:
         logger.warning("Mistral OCR failed: %s", exc)
