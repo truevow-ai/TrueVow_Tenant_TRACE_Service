@@ -17,9 +17,10 @@ python-dotenv>=1.0.0
 
 # Clinical NLP (Phase 1C: provider extraction from intake transcripts)
 # OpenMed >=1.7.0 adds source spans + multimodal de-identification primitives
-# OpenMed full NER pipeline requires transformers + torch:
-#   pip install openmed[hf]>=1.7.0,<1.9.0
+# OpenMed full NER pipeline requires transformers + torch
 openmed>=1.7.0,<1.9.0
+transformers>=4.30.0
+torch>=2.0.0
 
 # OCR (Phase 1D: multi-tier document text extraction)
 # Tier 1B primary: Mistral OCR 4 self-hosted (Fly.io sidecar, no BAA needed)

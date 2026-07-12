@@ -10,14 +10,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    torch>=2.0.0
+
+RUN pip install --no-cache-dir \
     "openmed>=1.7.0,<1.9.0" \
+    "transformers>=4.30.0" \
     "mistralai>=1.0.0" \
     "pytesseract>=0.3.10" \
     "pymupdf>=1.23.0" \
     "pandas>=2.0.0" \
     "pyarrow>=14.0.0"
 
-RUN python -c "import openmed; import pytesseract; print('OpenMed OK'); print('Tesseract OK'); print('ALL OK')"
+RUN python -c "import openmed; import transformers; import pytesseract; print('Torch+Transformers OK'); print('OpenMed OK'); print('Tesseract OK'); print('ALL OK')"
 
 RUN echo "$(date) spike included"
 
