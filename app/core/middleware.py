@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import uuid
 
 from fastapi import Request
@@ -12,6 +13,15 @@ from app.core.logging import get_logger
 logger = get_logger("trace.middleware")
 
 _API_PREFIX = "/api/v1/trace/"
+
+
+def _resolve_ip(request: Request):
+    if not request.client:
+        return None
+    try:
+        return ipaddress.ip_address(request.client.host)
+    except ValueError:
+        return None
 
 
 async def correlation_id_middleware(request: Request, call_next):
@@ -50,7 +60,7 @@ async def audit_middleware(request: Request, call_next):
                 # Collection-level actions are scoped to the firm.
                 resource_id=ctx.firm_id,
                 firm_id=ctx.firm_id,
-                ip_address=request.client.host if request.client else None,
+                ip_address=str(request.client.host) if request.client else None,
                 user_agent=request.headers.get("user-agent"),
                 correlation_id=getattr(request.state, "correlation_id", None),
                 details={"status_code": response.status_code},
