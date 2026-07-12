@@ -71,7 +71,15 @@ async def health() -> dict:
     }
 
 
-@app.get("/run-spike", tags=["test"])
+@app.get("/test-llm", tags=["test"])
+async def test_llm():
+    import os
+    from app.services.llm import create_llm_service
+
+    service = create_llm_service()
+    result = await service.complete("Reply with just the word WORKING.")
+    await service.close()
+    return {"status": "ok", "provider": os.environ.get("LLM_SERVICE_PROVIDER", ""), "response": result.content[:200]}
 async def run_spike():
     """Run Mistral OCR spike against 30 prescription images from GitHub."""
     import base64, io, json, os, urllib.request
