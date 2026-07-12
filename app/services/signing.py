@@ -56,7 +56,7 @@ class SigningService:
 
     @property
     def configured(self) -> bool:
-        return bool(self._api_url and self._api_token and self._webhook_secret)
+        return bool(self._api_url and self._api_token)
 
     async def send_signing_package(
         self,
