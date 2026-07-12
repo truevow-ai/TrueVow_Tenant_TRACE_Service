@@ -47,19 +47,48 @@ class LLMService(ABC):
 
 
 class DeepSeekAPILLMService(LLMService):
-    """DeepSeek V4 Flash via inference API (HIPAA-aligned provider like DeepInfra).
+    """DeepSeek V3 via OpenAI-compatible API.
 
-    Cost comparison candidate per AD update July 2026. Not self-hosted — runs
-    through a BAA-covered inference provider. 60% cheaper than GPT-4o-mini.
+    Cost comparison candidate per AD update July 2026. 60% cheaper than
+    GPT-4o-mini. Uses the standard DeepSeek chat completions endpoint.
+    PHI-stripping rules apply — never send client PII in prompts.
     """
 
-    def __init__(self, model_id: str = "deepseek-ai/DeepSeek-V4-Flash") -> None:
+    def __init__(self, api_key: str, model_id: str = "deepseek-chat") -> None:
+        self._api_key = api_key
         self._model_id = model_id
 
     async def complete(self, prompt: str, max_tokens: int = 256) -> LLMCompletionResult:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self._model_id,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": 0.1,
+                },
+            )
+            data = response.json()
+
+        if response.status_code != 200:
+            return LLMCompletionResult(
+                content=f"[DeepSeek API error: {data.get('error', {}).get('message', 'unknown')}]",
+                model=self._model_id,
+            )
+
+        choice = data["choices"][0]
         return LLMCompletionResult(
-            content="[DeepSeek V4 Flash API stub — Phase 1D billing reconciliation not yet built]",
+            content=choice["message"]["content"],
             model=self._model_id,
+            finish_reason=choice.get("finish_reason"),
+            usage=data.get("usage", {}),
         )
 
     async def close(self) -> None:
@@ -121,7 +150,9 @@ def create_llm_service(provider: str = "") -> LLMService:
             deployment=os.environ["AZURE_OPENAI_DEPLOYMENT"],
         )
     if provider == LLMProvider.DEEPSEEK_API.value:
-        return DeepSeekAPILLMService()
+        return DeepSeekAPILLMService(
+            api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+        )
     if provider == LLMProvider.ANTHROPIC.value:
         return AnthropicLLMService()
     raise ValueError(
