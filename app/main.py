@@ -71,7 +71,63 @@ async def health() -> dict:
     }
 
 
-@app.get("/test-llm", tags=["test"])
+@app.get("/run-pipeline", tags=["test"])
+async def run_pipeline_test():
+    """Run full E2E pipeline: OCR → NER → chronology → flags → export against seeded case."""
+    import asyncio, io, json, os, uuid
+    from datetime import date
+
+    CASE_ID = uuid.UUID("d379ee9b-19f7-4871-a86e-9684c69a11c3")
+
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter)
+    c.setFont("Helvetica", 11)
+    for text, y in [
+        ("PATIENT: Maria Rodriguez    DOB: 04/12/1985", 720),
+        ("DATE OF SERVICE: 03/15/2024", 700),
+        ("HISTORY: 38F cervical spine pain post MVA.", 680),
+        ("MRI 03/20/2024: C4-C5 disc herniation.", 660),
+        ("TREATMENT: PT 2x/week. Cyclobenzaprine 10mg.", 640),
+        ("REFERRAL: Dr. James Wilson, Orthopedic.", 620),
+        ("DISCHARGE: Released from Cedars-Sinai ER.", 600),
+    ]:
+        c.drawString(50, y, text)
+    c.save()
+    pdf_bytes = buf.getvalue()
+
+    from app.services.ocr_pipeline import run_ocr_pipeline
+    from app.services.chronology import build_chronology
+    from app.services.flags import run_all_tier1_flags
+    from app.services.export import ChronologyExporter
+
+    ocr = await run_ocr_pipeline(CASE_ID, pdf_bytes)
+    redacted = [{"redacted_text": p.redacted_text, "page_number": p.page_number}
+                for p in ocr.pages if p.redacted_text]
+    chron = await build_chronology(CASE_ID, redacted)
+    entries_dicts = [{"event_date": e.event_date, "clinical_description": e.clinical_description,
+                      "event_type": e.event_type.value, "facility_name": e.facility_name}
+                     for e in chron.entries]
+    flags = run_all_tier1_flags(CASE_ID, date(2024, 3, 15), entries_dicts)
+    exporter = ChronologyExporter()
+    export_json = exporter.export_json("SYN-001", "2024-03-15", "2026-03-15", "v1", True,
+        [{"event_date": e.event_date.isoformat(), "event_type": e.event_type.value,
+          "description": e.clinical_description, "provider": e.facility_name}
+         for e in chron.entries])
+
+    return {
+        "status": "ok",
+        "ocr_method": ocr.method,
+        "ocr_pages": len(ocr.pages),
+        "text_chars": len(ocr.pages[0].raw_text) if ocr.pages else 0,
+        "chronology_entries": chron.total_entries,
+        "tier1_flags": len(flags),
+        "flag_types": [f.flag_type for f in flags],
+        "export_json_bytes": len(export_json),
+        "entries": [{"date": str(e.event_date.date()), "type": e.event_type.value, "desc": e.clinical_description[:60]}
+                    for e in chron.entries[:5]],
+    }
 async def test_llm():
     import os
     from app.services.llm import create_llm_service
