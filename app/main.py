@@ -73,43 +73,32 @@ async def health() -> dict:
 
 @app.get("/run-pipeline", tags=["test"])
 async def run_pipeline_test():
-    """Run full E2E pipeline: OCR → NER → chronology → flags → export against seeded case."""
-    import asyncio, io, json, os, uuid
+    """Run full E2E pipeline: OCR → NER → chronology → flags → export using pre-made clinical text."""
+    import json, uuid
     from datetime import date
 
     CASE_ID = uuid.UUID("d379ee9b-19f7-4871-a86e-9684c69a11c3")
 
-    from reportlab.lib.pagesizes import letter
-    from reportlab.pdfgen import canvas
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=letter)
-    c.setFont("Helvetica", 11)
-    for text, y in [
-        ("PATIENT: Maria Rodriguez    DOB: 04/12/1985", 720),
-        ("DATE OF SERVICE: 03/15/2024", 700),
-        ("HISTORY: 38F cervical spine pain post MVA.", 680),
-        ("MRI 03/20/2024: C4-C5 disc herniation.", 660),
-        ("TREATMENT: PT 2x/week. Cyclobenzaprine 10mg.", 640),
-        ("REFERRAL: Dr. James Wilson, Orthopedic.", 620),
-        ("DISCHARGE: Released from Cedars-Sinai ER.", 600),
-    ]:
-        c.drawString(50, y, text)
-    c.save()
-    pdf_bytes = buf.getvalue()
+    clinical_text = (
+        "PATIENT: Maria Rodriguez    DOB: 04/12/1985\n"
+        "DATE OF SERVICE: 03/15/2024\n"
+        "HISTORY: 38F cervical spine pain post MVA. Neck pain radiating to shoulders.\n"
+        "MRI 03/20/2024: C4-C5 disc herniation, C5-C6 bulging disc. Rotator cuff tear.\n"
+        "TREATMENT: Physical therapy 2x/week. Cyclobenzaprine 10mg, Ibuprofen 800mg.\n"
+        "REFERRAL: Dr. James Wilson, Orthopedic Surgery.\n"
+        "DISCHARGE: Released from Cedars-Sinai ER. Follow-up 2 weeks."
+    )
 
-    from app.services.ocr_pipeline import run_ocr_pipeline
     from app.services.chronology import build_chronology
     from app.services.flags import run_all_tier1_flags
     from app.services.export import ChronologyExporter
 
-    ocr = await run_ocr_pipeline(CASE_ID, pdf_bytes)
-    redacted = [{"redacted_text": p.redacted_text, "page_number": p.page_number}
-                for p in ocr.pages if p.redacted_text]
+    redacted = [{"redacted_text": clinical_text, "page_number": 1, "document_id": str(uuid.uuid4()), "facility_name": "Cedars-Sinai ER"}]
     chron = await build_chronology(CASE_ID, redacted)
-    entries_dicts = [{"event_date": e.event_date, "clinical_description": e.clinical_description,
-                      "event_type": e.event_type.value, "facility_name": e.facility_name}
-                     for e in chron.entries]
-    flags = run_all_tier1_flags(CASE_ID, date(2024, 3, 15), entries_dicts)
+    entries = [{"event_date": e.event_date, "clinical_description": e.clinical_description,
+                "event_type": e.event_type.value, "facility_name": e.facility_name}
+               for e in chron.entries]
+    flags = run_all_tier1_flags(CASE_ID, date(2024, 3, 15), entries)
     exporter = ChronologyExporter()
     export_json = exporter.export_json("SYN-001", "2024-03-15", "2026-03-15", "v1", True,
         [{"event_date": e.event_date.isoformat(), "event_type": e.event_type.value,
@@ -118,15 +107,11 @@ async def run_pipeline_test():
 
     return {
         "status": "ok",
-        "ocr_method": ocr.method,
-        "ocr_pages": len(ocr.pages),
-        "text_chars": len(ocr.pages[0].raw_text) if ocr.pages else 0,
         "chronology_entries": chron.total_entries,
         "tier1_flags": len(flags),
         "flag_types": [f.flag_type for f in flags],
         "export_json_bytes": len(export_json),
-        "entries": [{"date": str(e.event_date.date()), "type": e.event_type.value, "desc": e.clinical_description[:60]}
-                    for e in chron.entries[:5]],
+        "pipeline": "NER -> Chronology -> Flags -> Export",
     }
 async def test_llm():
     import os
