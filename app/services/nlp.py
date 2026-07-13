@@ -154,11 +154,13 @@ class OpenMedService:
             result = extract_pii(redacted_text)
             entities = [
                 ClinicalEntity(
-                    label=e.entity_type,
-                    text=e.original_text,
-                    confidence=e.threshold,
+                    label=e.label,
+                    text=e.text,
+                    confidence=e.confidence,
+                    start_char=e.start or 0,
+                    end_char=e.end or 0,
                 )
-                for e in result
+                for e in result.entities
             ]
             return NERResult(entities=entities)
 
