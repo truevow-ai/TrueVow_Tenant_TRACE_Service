@@ -96,7 +96,7 @@ def detect_delayed_initial_treatment(
     """T1-01: Gap between incident date and first clinical encounter."""
     if first_event_date is None:
         return None
-    gap_days = (first_event_date - incident_date).days
+    gap_days = (first_event_date.date() - incident_date).days if hasattr(first_event_date, 'date') else (first_event_date - incident_date).days
     if gap_days < 4:
         return None
     priority = FlagPriority.PRIORITY if gap_days >= 8 else FlagPriority.ADVISORY
