@@ -15,12 +15,15 @@ from sqlalchemy import select, func
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.audit import write_audit
-from app.core.database import async_session_maker
+from app.core.database import async_session_maker, get_db
 from app.core.logging import get_logger
 from app.models.case import Case
 from app.models.document import Document
 from app.models.event_node import EventNode
+from app.models.lien import Lien
+from app.models.provider import Provider
 from app.storage.storage_service import get_storage_service
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = get_logger("trace.qa")
 
@@ -228,3 +231,71 @@ async def approve_demand_ready(
         "approved_by": ctx.user_id,
         "message": "Chronology marked demand-ready. You may now export it.",
     }
+
+
+@router.get("/readiness")
+async def case_readiness(
+    case_id: uuid.UUID,
+    ctx: AuthContext = Depends(get_current_context),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Case Readiness Board — what's complete, pending, missing."""
+    try:
+        firm_uuid = uuid.UUID(ctx.firm_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=403)
+
+    case = (await db.execute(select(Case).where(Case.case_id == case_id))).scalar_one_or_none()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Case not found.")
+
+    return {
+        "case_id": str(case_id),
+        "stage": case.case_stage,
+        "hipaa_status": case.hipaa_auth_status,
+        "provider_count": (await db.execute(select(func.count()).select_from(Provider).where(Provider.case_id == case_id))).scalar() or 0,
+        "lien_count": (await db.execute(select(func.count()).select_from(Lien).where(Lien.case_id == case_id))).scalar() or 0,
+        "ready_to_export": case.case_stage == "DEMAND_READY",
+    }
+
+
+@router.get("/export")
+async def case_export(
+    case_id: uuid.UUID,
+    format: str = "pdf",
+    ctx: AuthContext = Depends(get_current_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export demand-ready case as PDF or JSON."""
+    try:
+        firm_uuid = uuid.UUID(ctx.firm_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=403)
+
+    case = (await db.execute(select(Case).where(Case.case_id == case_id))).scalar_one_or_none()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Case not found.")
+
+    if case.case_stage != "DEMAND_READY":
+        raise HTTPException(
+            status_code=403,
+            detail="Case is not demand-ready. Review and approve before exporting.",
+        )
+
+    from app.services.export import ChronologyExporter
+    from fastapi.responses import Response
+
+    exporter = ChronologyExporter()
+    provider_results = await db.execute(select(Provider).where(Provider.case_id == case_id))
+    providers = provider_results.scalars().all()
+
+    if format == "json":
+        data = exporter.export_json(case, providers)
+        return data
+    else:
+        pdf_bytes = exporter.export_pdf(case, providers)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=case_{case_id}.pdf"},
+        )

@@ -1,0 +1,18 @@
+app = 'truevow-docuseal'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile.docuseal'
+
+[http_service]
+  internal_port = 3000
+  force_https = false
+  processes = ["app"]
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1024mb'
+
+[mounts]
+  source = 'docuseal_data'
+  destination = '/data'

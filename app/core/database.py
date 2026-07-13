@@ -54,12 +54,12 @@ async def get_db(
     async with async_session_maker() as session:
         if is_postgres():
             await session.execute(
-                text("SET LOCAL app.current_tenant_id = :t"), {"t": ctx.firm_id}
+                text(f"SET LOCAL app.current_tenant_id = '{ctx.firm_id}'")
             )
             await session.execute(
-                text("SET LOCAL app.current_user_id = :u"), {"u": ctx.user_id}
+                text(f"SET LOCAL app.current_user_id = '{ctx.user_id}'")
             )
             await session.execute(
-                text("SET LOCAL app.current_user_role = :r"), {"r": ctx.role or ""}
+                text(f"SET LOCAL app.current_user_role = '{ctx.role or ''}'")
             )
         yield session

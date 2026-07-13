@@ -41,6 +41,22 @@ async def list_cases(
     return {"cases": [c.to_summary() for c in cases], "count": len(cases)}
 
 
+@router.get("/{case_id}")
+async def get_case(
+    case_id: uuid.UUID,
+    ctx: AuthContext = Depends(get_current_context),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get a single case by ID, firm-scoped."""
+    result = await db.execute(
+        select(Case).where(Case.case_id == case_id)
+    )
+    case = result.scalar_one_or_none()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Case not found.")
+    return case.to_summary()
+
+
 @router.post("", response_model=CaseCreateResponse, status_code=status.HTTP_201_CREATED)
 async def initialize_case(
     payload: CaseCreateRequest,

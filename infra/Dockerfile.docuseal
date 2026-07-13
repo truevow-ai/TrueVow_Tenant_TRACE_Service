@@ -1,0 +1,7 @@
+FROM docuseal/docuseal:latest
+
+WORKDIR /app
+
+EXPOSE 3000
+
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb", "-b", "tcp://0.0.0.0:3000"]
