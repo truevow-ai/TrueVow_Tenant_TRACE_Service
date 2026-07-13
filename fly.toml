@@ -30,8 +30,8 @@ primary_region = 'iad'
 # PaddlePaddle 3.3 + OCR models need ~1-2GB RAM.
 # shared-cpu-2x (2 vCPU, 1GB) is the minimum for the full OCR/NLP stack.
 [[vm]]
-  size = 'shared-cpu-2x'
-  memory = '2048mb'
+  size = 'shared-cpu-4x'
+  memory = '4096mb'
 
 # Fly.io secrets for production (never in git, never in fly.toml).
 # Set via: fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
