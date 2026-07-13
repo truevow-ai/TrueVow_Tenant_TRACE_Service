@@ -160,16 +160,19 @@ async def build_chronology(
             continue
 
         ner_result = await nlp.extract_clinical_entities(text)
+        page_date = _extract_date(text)
+        
         for entity in ner_result.entities:
-            event_date = _extract_date(text) or _extract_date(entity.text)
+            event_date = _extract_date(entity.text) or page_date
             quality_flags: list[str] = []
             if event_date is None:
                 quality_flags.append("DATE_NOT_FOUND")
+                continue
             provider_id = page.get("provider_id")
             event_type = _classify_event_type(entity.label)
             clinical = entity.text[:500]
 
-            event_key = (event_date.replace(second=0, microsecond=0), entity.text[:100], event_type)
+            event_key = (event_date.replace(second=0, microsecond=0), entity.text[:100], event_type) if event_date else None
             entry = ChronologyEntry(
                 entry_id=uuid.uuid4(),
                 case_id=case_id,

@@ -148,6 +148,20 @@ class OpenMedService:
         return DeidentificationResult(redacted_text=redacted)
 
     async def extract_clinical_entities(self, redacted_text: str) -> NERResult:
+        if self._use_openmed:
+            from openmed import extract_pii
+
+            result = extract_pii(redacted_text)
+            entities = [
+                ClinicalEntity(
+                    label=e.entity_type,
+                    text=e.original_text,
+                    confidence=e.threshold,
+                )
+                for e in result
+            ]
+            return NERResult(entities=entities)
+
         entities: list[ClinicalEntity] = []
         all_patterns = list(PROVIDER_PATTERNS) + list(CLINICAL_ENTITY_PATTERNS)
         for pattern, label in all_patterns:
