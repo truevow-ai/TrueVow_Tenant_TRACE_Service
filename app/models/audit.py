@@ -23,7 +23,7 @@ class AuditLog(Base):
     log_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     actor_type: Mapped[str] = mapped_column(String(20), nullable=False)  # ATTORNEY/SYSTEM/SUPPORT
-    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    action: Mapped[str] = mapped_column(String(255), nullable=False)
     resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
     resource_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     case_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)

@@ -29,7 +29,7 @@ class Provider(Base):
     last_request_sent: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     follow_up_count: Mapped[int] = mapped_column(Integer, default=0)
     # Provider-extraction metadata (spec §5.1).
-    extraction_confidence: Mapped[str | None] = mapped_column(String(10), nullable=True)  # HIGH/MEDIUM/LOW
+    extraction_confidence: Mapped[str | None] = mapped_column(String(32), nullable=True)
     source_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (

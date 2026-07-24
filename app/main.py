@@ -9,6 +9,10 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+
+load_dotenv(".env.local", override=True)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -117,6 +121,9 @@ async def run_pipeline_test():
         "flag_error": flag_error,
         "export_bytes": len(export_json),
     }
+
+
+@app.get("/llm-test", tags=["test"])
 async def test_llm():
     import os
     from app.services.llm import create_llm_service

@@ -48,8 +48,13 @@ async def get_case(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Get a single case by ID, firm-scoped."""
+    try:
+        firm_uuid = uuid.UUID(ctx.firm_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=403, detail="Invalid firm identity.") from None
+
     result = await db.execute(
-        select(Case).where(Case.case_id == case_id)
+        select(Case).where(Case.case_id == case_id, Case.firm_id == firm_uuid)
     )
     case = result.scalar_one_or_none()
     if case is None:

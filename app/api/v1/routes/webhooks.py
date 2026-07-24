@@ -1,8 +1,10 @@
-"""Fax delivery-status webhook (Documo / fax vendor callback).
+"""Fax/webhook callbacks — inbound + outbound status updates.
 
-Machine-to-machine endpoint (no Clerk session). Protected by a shared
-secret header. Updates the matching ``record_requests`` row and the
-provider's retrieval_status. No PHI is accepted or returned.
+Machine-to-machine endpoints (no Clerk session). Protected by shared
+secret headers. Handles:
+  - Outbound fax delivery status (Documo callback)
+  - Inbound email with attachments (Resend webhook)
+  - Inbound fax receipt (Documo received-fax callback)
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from app.core.config import settings
 from app.core.database import async_session_maker
 from app.models.provider import Provider
 from app.models.record_request import RecordRequest
+from app.services.inbound import process_inbound_email, process_inbound_fax
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -85,3 +88,58 @@ async def fax_status(
         details={"fax_transmission_id": str(transmission_id), "status": mapped},
     )
     return {"status": mapped}
+
+
+# ── Inbound email (Resend webhook) ──
+
+@router.post("/inbound-email")
+async def inbound_email(
+    request: Request,
+    x_resend_signature: str | None = Header(default=None),
+) -> dict:
+    """Receive medical records via email forwarded by Resend.
+
+    Providers email records to a TRACE address (e.g. records@intakely.xyz).
+    Resend parses the email and POSTs the attachments to this webhook.
+    The system matches the email to a case and stores the documents.
+    """
+    raw_body = await request.body()
+    results = await process_inbound_email(raw_body, x_resend_signature or "")
+    stored = [r for r in results if r.success]
+    failed = [r for r in results if not r.success]
+
+    return {
+        "received": len(results),
+        "stored": len(stored),
+        "document_ids": [str(r.document_id) for r in stored if r.document_id],
+        "case_ids": [str(r.case_id) for r in stored if r.case_id],
+        "errors": [r.error for r in failed],
+    }
+
+
+# ── Inbound fax (Documo received-fax callback) ──
+
+@router.post("/inbound-fax")
+async def inbound_fax(
+    request: Request,
+    x_documo_signature: str | None = Header(default=None),
+) -> dict:
+    """Receive fax callback from Documo when a provider faxes records back.
+
+    Documo sends a webhook with the fax metadata and a media_url to download
+    the PDF. The system matches by fax number and stores the document.
+    """
+    try:
+        payload: dict = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+
+    result = await process_inbound_fax(payload, x_documo_signature or "")
+    if not result.success:
+        return {"status": "unmatched", "error": result.error}
+
+    return {
+        "status": "stored",
+        "document_id": str(result.document_id) if result.document_id else None,
+        "case_id": str(result.case_id) if result.case_id else None,
+    }

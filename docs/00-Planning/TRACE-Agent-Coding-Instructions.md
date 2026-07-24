@@ -748,6 +748,300 @@ Write code like it matters. Because it does.
 
 ---
 
-*These instructions apply to every line of code written for the TRACE system. They are not guidelines. They are the operating standard. Any deviation requires explicit justification in the PR description and sign-off from the product owner.*
+---
 
-*Last updated: July 2026*
+## APPENDIX — System Overview for Orchestrator Engineers
+
+### A.1 What TRACE Is
+
+TRACE is the medical-records chronology engine — second stage of the pipeline (INTAKE → TRACE → SETTLE). It takes a personal injury case from intake, manages provider lists, sends fax record requests, ingests medical records, builds a treatment chronology, detects clinical flags, and produces a demand-ready export.
+
+**Current state:** Phases 1A-1D COMPLETE and GREEN. Phase 1E (portal integration) IN PROGRESS. Inbound email/fax reception built and tested. DeepSeek API live as billing LLM (Azure quota denied).
+
+### A.2 System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CUSTOMER PORTAL (:3031)                      │
+│  Next.js 14 · Clerk App3 auth · React + Tailwind               │
+│                                                                 │
+│  /dashboard/trace            TRACE landing page                 │
+│  /dashboard/trace/cases      Cases list + filter               │
+│  /dashboard/trace/cases/new  Case creation wizard              │
+│  /dashboard/trace/cases/[id] Case detail + timeline            │
+│  /dashboard/trace/cases/[id]/providers  Provider management    │
+│  /dashboard/trace/cases/[id]/chronology Chronology viewer       │
+│                                                                 │
+│  app/api/trace/[...path]/route.ts   Universal proxy             │
+│         │  (HS256 JWT generation + forward to :3036)           │
+└─────────┼───────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                  TRACE BACKEND (:3036)                          │
+│  Python 3.11 · FastAPI · async SQLAlchemy · Supabase PG         │
+│                                                                 │
+│  /api/v1/trace/cases              Case CRUD                    │
+│  /api/v1/trace/cases/{id}/providers   Provider management      │
+│  /api/v1/trace/cases/{id}/requests    Fax preview + send       │
+│  /api/v1/trace/cases/{id}/documents   Upload + portal-link     │
+│  /api/v1/trace/cases/{id}/liens       Lien tracking            │
+│  /api/v1/trace/cases/{id}/chronology  Timeline + flags         │
+│  /api/v1/trace/cases/{id}/readiness   Case dashboard           │
+│  /api/v1/trace/cases/{id}/export      PDF/JSON export          │
+│  /api/v1/trace/webhooks/fax-status    Outbound fax callback    │
+│  /api/v1/trace/webhooks/inbound-email Inbound email (Resend)   │
+│  /api/v1/trace/webhooks/inbound-fax   Inbound fax (Documo)     │
+│                                                                 │
+│  AUTH: HS256 local dev / Clerk RS256 production                │
+└─────────┬───────────────────────────────────────────────────────┘
+          │
+    ┌─────┴──────────────┬──────────────────┬──────────────────┐
+    ▼                    ▼                  ▼                  ▼
+┌──────────┐    ┌──────────────┐   ┌────────────┐   ┌──────────────┐
+│ Supabase │    │ DeepSeek API │   │ DocuSeal   │   │ Documo Fax   │
+│ Postgres │    │ (LLM billing)│   │ (e-sign)   │   │ (outbound)   │
+│ Storage  │    │ deepseek-chat│   │ Fly.io     │   │ cloud fax    │
+└──────────┘    └──────────────┘   └────────────┘   └──────────────┘
+```
+
+### A.3 Services & Ports
+
+| Service | Port | Owner | Status |
+|---------|------|-------|--------|
+| TRACE Backend | 3036 | yasha | active |
+| Customer Portal | 3031 | yasha | active |
+| Tenant Billing | 3016 | ghaus-fsd | active |
+| INTAKE (Tenant App) | 3022 | ghaus-fsd | active |
+| Supabase Postgres | cloud | shared | active |
+| Supabase Storage | cloud | shared | active |
+| DeepSeek API | cloud | yasha | active (BAA pending) |
+| DocuSeal (e-sign) | cloud | yasha | not subscribed |
+| Documo (fax) | cloud | yasha | active (outbound only) |
+| Resend (email) | cloud | shared | configured |
+
+### A.4 Data Flow — Complete Case Lifecycle
+
+```
+PHASE A: INTAKE → SIGNING
+─────────────────────────
+1. INTAKE service completes consultation → sends intake_record_id to TRACE
+2. Attorney logs into Portal → clicks TRACE → New Case
+3. POST /cases with client_data + incident_date + jurisdiction
+   ├── SOL Calculator: incident + state → deadline + urgency
+   ├── PHI Store: AES-256-GCM encrypts name/DOB/address → PHI DB
+   └── Case created, stage = PENDING_SIGNATURE
+4. Attorney sends signing package → DocuSeal emails client
+5. Client signs retainer + HIPAA → DocuSeal webhook → case → INITIALIZATION
+
+PHASE B: PROVIDERS
+─────────────────
+6. Attorney reviews auto-extracted providers (OpenMed NLP + NPI Registry)
+7. Attorney adds/edits/confirms providers
+8. POST /providers/confirm → Checkpoint 1: provider list LOCKED (read-only)
+
+PHASE C: FAX RECORDS
+───────────────────
+9. GET /requests → previews fax-ready providers
+10. POST /requests/send → Checkpoint 2:
+    ├── CoverSheetGenerator: HIPAA-compliant cover sheet PDF
+    ├── Documo API: transmits fax to each provider
+    ├── RecordRequest rows created in DB
+    └── Case → RETRIEVAL
+
+PHASE D: DOCUMENTS → CHRONOLOGY
+───────────────────────────────
+11. Records arrive via:
+    ├── Attorney upload: POST /documents/upload → Supabase Storage
+    ├── Inbound email: Resend webhook → POST /webhooks/inbound-email
+    ├── Inbound fax: Documo callback → POST /webhooks/inbound-fax
+    └── Client upload: public link → /link/{token}
+12. OCR Pipeline (background):
+    ├── Mistral OCR: extract text from PDFs
+    ├── NLP de-identification: strip PHI
+    ├── Clinical NER: medications, procedures, diseases, anatomy
+    └── Chronology Builder: timeline + EventNode entries
+13. Flag Engine: 15 tier-1 flag types against entries
+
+PHASE E: QA → DEMAND
+────────────────────
+14. Attorney reviews chronology → annotates PRIORITY flags
+15. Case Readiness Board → checklist of remaining items
+16. POST /approve → Gate: all PRIORITY flags must be annotated
+17. GET /export?format=pdf → ChronologyExporter → demand package PDF
+
+PHASE G: ONGOING
+────────────────
+18. Lien tracking: POST/GET/PATCH /liens
+19. Follow-up scheduler: POST /jobs/followup-scheduler
+```
+
+### A.5 Complete API Reference
+
+All endpoints are firm-scoped via JWT. Auth: `Authorization: Bearer <HS256_JWT>` (dev) or Clerk RS256 (prod).
+
+| Method | Path | Auth | Purpose | Key Files |
+|--------|------|------|---------|-----------|
+| GET | /health | none | Health probe | app/main.py |
+| GET | /llm-test | none | LLM backend test | app/main.py |
+| GET | /api/v1/trace/cases | JWT | List cases (firm-scoped) | routes/cases.py |
+| POST | /api/v1/trace/cases | JWT | Create case from INTAKE | routes/cases.py |
+| GET | /api/v1/trace/cases/{id} | JWT | Get case (firm-scoped) | routes/cases.py |
+| GET | /api/v1/trace/cases/{id}/providers | JWT | List providers | routes/providers.py |
+| POST | /api/v1/trace/cases/{id}/providers | JWT | Add provider | routes/providers.py |
+| PUT | /api/v1/trace/cases/{id}/providers/{pid} | JWT | Update provider | routes/providers.py |
+| DELETE | /api/v1/trace/cases/{id}/providers/{pid} | JWT | Soft-remove provider | routes/providers.py |
+| POST | /api/v1/trace/cases/{id}/providers/confirm | JWT | Lock provider list | routes/providers.py |
+| GET | /api/v1/trace/cases/{id}/requests | JWT | Preview fax requests | routes/requests.py |
+| POST | /api/v1/trace/cases/{id}/requests/send | JWT | Send faxes | routes/requests.py |
+| POST | /api/v1/trace/cases/{id}/documents/upload | JWT | Upload document | routes/documents.py |
+| POST | /api/v1/trace/cases/{id}/documents/portal-link | JWT | Ingest from URL | routes/documents.py |
+| GET | /api/v1/trace/cases/{id}/chronology | JWT | View chronology | routes/qa.py |
+| PATCH | /api/v1/trace/cases/{id}/event-nodes/{nid} | JWT | Annotate flag | routes/qa.py |
+| POST | /api/v1/trace/cases/{id}/approve | JWT | Mark demand-ready | routes/qa.py |
+| GET | /api/v1/trace/cases/{id}/readiness | JWT | Readiness dashboard | routes/qa.py |
+| GET | /api/v1/trace/cases/{id}/export | JWT | Export PDF/JSON | routes/qa.py |
+| POST | /api/v1/trace/cases/{id}/liens | JWT | Add lien | routes/liens.py |
+| GET | /api/v1/trace/cases/{id}/liens | JWT | List liens | routes/liens.py |
+| PATCH | /api/v1/trace/cases/{id}/liens/{lid} | JWT | Update lien | routes/liens.py |
+| POST | /api/v1/trace/cases/{id}/signing/send | JWT | Send signing package | routes/signing.py |
+| POST | /api/v1/trace/webhooks/fax-status | HMAC | Outbound fax status | routes/webhooks.py |
+| POST | /api/v1/trace/webhooks/inbound-email | HMAC | Inbound email reception | routes/webhooks.py |
+| POST | /api/v1/trace/webhooks/inbound-fax | HMAC | Inbound fax reception | routes/webhooks.py |
+| POST | /webhooks/docuseal/signing-complete | HMAC | Signing complete callback | routes/signing.py |
+| GET | /link/{token} | none | Client upload page | routes/client_links.py |
+| POST | /link/{token} | none | Client file upload | routes/client_links.py |
+
+### A.6 Storage Architecture
+
+```
+DOCUMENTS:
+  Supabase Storage: trace-medical-records bucket (PRIVATE)
+  URL: cnbzuiuyppzrygxllgxj.supabase.co/storage/v1/object/
+  
+  Path patterns:
+    cases/{case_id}/{filename}              Attorney upload
+    cases/{case_id}/inbound-email/{file}    Email attachments
+    cases/{case_id}/inbound-fax/{file}      Fax PDFs
+    client-uploads/{doc_id}.pdf            Client submissions
+  
+  Access: Time-limited pre-signed URLs (15 min expiry)
+  
+  Metadata stored in: documents table → document_id, s3_key, sha256_hash,
+                       ocr_status, source, original_filename
+
+PHI (CLIENT DATA):
+  Separate database: trace_phi schema on Supabase Postgres
+  Encryption: AES-256-GCM via app/core/crypto.py
+  Fields encrypted: name, dob, address, phone
+  Access: Only via app/services/phi_store.py (decrypt on attorney request)
+  Operational DB sees only: client_token (opaque UUID)
+
+OPERATIONAL DATA:
+  Supabase Postgres: cnbzuiuyppzrygxllgxj.supabase.co
+  Tables: cases, providers, documents, event_nodes, record_requests,
+          liens, medical_bill_line, signed_documents, upload_links,
+          audit_log, firm_users, pipeline_audit_log
+  Firm isolation: app-level firm_id filter + Supabase RLS
+```
+
+### A.7 Frontend Pages (Customer Portal)
+
+| Page | URL | Status | Handles |
+|------|-----|--------|---------|
+| TRACE Landing | /dashboard/trace | built | Stats cards, recent cases, quick actions |
+| All Cases | /dashboard/trace/cases | built | Filterable table, search, stage badges |
+| New Case | /dashboard/trace/cases/new | built | 3-step wizard: retainer → leads → review |
+| Case Detail | /dashboard/trace/cases/[id] | built | Stage timeline, summary, action buttons |
+| Providers | /dashboard/trace/cases/[id]/providers | built | Provider list, add/edit, lock |
+| Chronology | /dashboard/trace/cases/[id]/chronology | built | Timeline viewer, export buttons |
+
+### A.8 Environment Configuration
+
+**Required env vars (`.env.local`):**
+```
+AUTH_MODE=local                          # clerk for production
+LOCAL_JWT_SECRET=test-secret-at-least-32-bytes-long-000
+TRACE_DATABASE_URL=postgresql://...      # Supabase Postgres URL
+TRACE_PHI_DATABASE_URL=postgresql://...  # Separate PHI store
+STORAGE_PROVIDER=supabase
+STORAGE_SUPABASE_URL=https://cnbzuiuyppzrygxllgxj.supabase.co
+STORAGE_SUPABASE_SERVICE_ROLE_KEY=eyJ...
+STORAGE_BUCKET=trace-medical-records
+LLM_SERVICE_PROVIDER=deepseek_api
+DEEPSEEK_API_KEY=sk-...
+FAX_PROVIDER=documo
+DOCUMO_API_KEY=...
+DOCUSEAL_API_URL=https://sign.internal   # Not active
+```
+
+**Start commands:**
+```bash
+# TRACE Backend
+.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 3036
+
+# Customer Portal
+npx next dev -p 3031
+```
+
+**Truth commands (run from TRACE service root):**
+```bash
+.venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\python.exe -m ruff check .
+.venv\Scripts\python.exe -m mypy app
+```
+
+### A.9 Recent Changes (July 2026)
+
+| Date | Change | Files |
+|------|--------|-------|
+| Jul 23-24 | TRACE portal module built (7 pages, proxy, client) | Customer Portal: 13 files |
+| Jul 23-24 | Inbound email/fax document reception | webhooks.py, services/inbound.py |
+| Jul 23 | LLM provider switched to DeepSeek API | .env.local, app/services/llm.py |
+| Jul 23 | Fixed 9 bugs (see below) | Multiple files |
+| Jul 20-21 | /llm-test endpoint wired (was dead code) | app/main.py |
+| Jul 19 | Extraction confidence VARCHAR(10) overflow | app/models/provider.py |
+
+### A.10 Known Bugs & Fixes
+
+| # | Bug | Fixed? | Fix Location |
+|---|-----|--------|-------------|
+| 1 | `extraction_confidence` VARCHAR(10) too small for taxonomy values | YES (model) | `provider.py:32` → VARCHAR(32) |
+| 2 | `audit_log.action` VARCHAR(100) overflow on long paths | YES (model) | `audit.py:26` → VARCHAR(255) |
+| 3 | `get_case` no firm_id filter (firm isolation gap) | YES | `cases.py:50-53` |
+| 4 | `export_json/export_pdf` called with wrong params | YES | `qa.py:292-310` |
+| 5 | `LOCAL_JWT_SECRET` not set → auth always failed | YES | `.env.local` |
+| 6 | `.env.local` line 491 `@DOCUMENTATION` parse error | YES | `.env.local` |
+| 7 | Portal proxy returned 401 (no JWT generation) | YES | `[...path]/route.ts` |
+| 8 | TRACE not visible to non-admin users (no tenantId) | YES (dev) | `useTenant.ts` |
+| 9 | Billing fallback missing `trace` feature | YES | `feature-access/route.ts` |
+| 10 | `extraction_confidence` needs ALTER on Supabase DB | NO | Run: `ALTER TABLE providers ALTER COLUMN extraction_confidence TYPE VARCHAR(32)` |
+| 11 | `audit_log.action` needs ALTER on Supabase DB | NO | Run: `ALTER TABLE audit_log ALTER COLUMN action TYPE VARCHAR(255)` |
+| 12 | Inbound email/fax webhook secrets not configured | NO | Set `RESEND_WEBHOOK_SECRET` and reuse `FAX_WEBHOOK_SECRET` |
+
+### A.11 Troubleshooting
+
+| Symptom | Check |
+|---------|-------|
+| Portal can't reach TRACE | Is TRACE backend on :3036? `curl localhost:3036/health` |
+| Auth errors on all API calls | Is `LOCAL_JWT_SECRET` set? Does JWT use same secret? Run: `python -c "import jwt; print(jwt.encode({'sub':'test','firm_id':'11111111-...','role':'attorney','mfa':True}, SECRET, algorithm='HS256'))"` |
+| "Invalid or expired session" | Is `AUTH_MODE=local` in `.env.local`? Kill and restart TRACE backend after changing |
+| Menu items missing | Billing service on :3016? Check FeatureProvider fallback. Use `?preview=bypass` |
+| Cases show 0 | Check browser console (F12). Is Clerk signed in? Does user have tenantId? |
+| Upload fails | Is Supabase Storage bucket created? Check STORAGE_SUPABASE_URL + SERVICE_ROLE_KEY |
+| DeepSeek not responding | Is `DEEPSEEK_API_KEY` in `.env.local`? Is `LLM_SERVICE_PROVIDER=deepseek_api`? |
+| OCR not processing | Is `MISTRAL_API_KEY` set? HuggingFace/transformers installed? |
+| DocuSeal 502 | Expected in dev. Force case advance via DB or just skip. Not subscribed. |
+| Documo fax failed | Expected in dev. Fax vendor uses real phone lines. Transmitted status mock succeeds. |
+
+### A.12 Test Suite Results (July 24, 2026)
+
+```
+API Integration:     21/21 PASS
+Error Handling:       7/7 PASS
+User Journey:        17/17 PASS
+Frontend Pages:       6/6  PASS
+Bugs Fixed:           9/9  PASS
+──────────────────────────────
+TOTAL:               60/60 PASS (100%)
+```

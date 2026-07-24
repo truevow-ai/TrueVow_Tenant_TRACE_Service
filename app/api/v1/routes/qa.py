@@ -290,12 +290,24 @@ async def case_export(
     providers = provider_results.scalars().all()
 
     if format == "json":
-        data = exporter.export_json(case, providers)
+        data = exporter.export_json(
+            matter_reference=str(case.case_id)[:8],
+            incident_date=case.incident_date.isoformat() if case.incident_date else "",
+            sol_estimate=case.sol_deadline.isoformat() if case.sol_deadline else "Unknown",
+            sol_table_version=case.sol_table_version or "2026-07",
+            sol_confirmed=False,
+            entries=[],
+        )
         return data
     else:
-        pdf_bytes = exporter.export_pdf(case, providers)
+        pdf_bytes = exporter.export_pdf(
+            matter_reference=str(case.case_id)[:8],
+            incident_date=case.incident_date.isoformat() if case.incident_date else "",
+            sol_estimate=case.sol_deadline.isoformat() if case.sol_deadline else "Unknown",
+            entries=[],
+        )
         return Response(
-            content=pdf_bytes,
+            content=pdf_bytes.getvalue(),
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=case_{case_id}.pdf"},
+            headers={"Content-Disposition": f"attachment; filename=case_{case.case_id}.pdf"},
         )
