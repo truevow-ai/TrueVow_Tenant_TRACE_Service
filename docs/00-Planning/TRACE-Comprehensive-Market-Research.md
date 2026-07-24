@@ -247,76 +247,82 @@ Male, ~52 years old. 15-25 years practicing. 0-1 staff. $150K-$500K revenue. 30-
 
 ## One Product. One Price Per Case. One Scale.
 
-TRACE has no feature tiers. Every plan includes all 57 features. The only difference is volume commitment. The more cases you commit to, the less you pay per case.
+TRACE has no feature tiers. Every plan includes all 57 features. The only difference is volume commitment. The more you commit, the less you pay per case.
 
-| Tier | Model | Price | Per-Case | Break-Even | Best For |
-|------|-------|-------|----------|------------|----------|
-| **Solo** | Per-Case | $199/case | $199 | No commitment | Attorneys doing 1-9 cases/month |
-| **Growth** | Monthly, up to 11 cases | $1,199/mo | $109/case | 6 cases | Firms doing 6-11 cases/month |
-| **Team** | Monthly, up to 21 cases | $1,999/mo | $95/case | 10 cases | Firms doing 10-21 cases/month |
-| **Enterprise** | Monthly, custom | Negotiated | Negotiated | 22+ cases | Firms doing 22+ cases/month |
+### Per-Case & Subscription
 
-## How the Math Works
+| Tier | Model | Price | Per-Case | Best For |
+|------|-------|-------|----------|----------|
+| **Solo** | Per-case | $199/case | $199 | 1-5 cases/month, unpredictable volume |
+| **5-Pack** | One-time | $895 | $179/case | Small volume, no subscription, no expiry |
+| **Growth** | Monthly | $1,199/mo | $109/case (11 cases) | 6-15 cases/month, predictable volume |
+| **Team** | Monthly | $1,999/mo | $95/case (21 cases) | 16-30 cases/month, high volume |
 
-| Scenario | Solo (per-case) | Growth (subscription) | Team (subscription) |
-|----------|----------------|----------------------|---------------------|
-| 3 cases this month | $597 | $1,199 (overpaying — use Solo) | $1,999 (overpaying — use Solo) |
-| 6 cases this month | $1,194 | $1,199 (breakeven) | $1,999 (overpaying — use Growth) |
-| 8 cases this month | $1,592 | $1,199 ($393 saved) | $1,999 (overpaying — use Growth) |
-| 11 cases this month | $2,189 | $1,199 ($990 saved) | $1,999 ($190 saved vs Growth if you need more) |
-| 15 cases this month | $2,985 | $1,199 + 4 × $109 = $1,635 ($1,350 saved) | $1,999 ($1,986 saved vs per-case) |
-| 21 cases this month | $4,179 | $1,199 + 10 × $109 = $2,289 | $1,999 ($2,180 saved vs per-case) |
+### Ecosystem Discount (with Active INTAKE)
 
-**Subscription rollover:** Unused cases roll to the next month (up to one month). So if you do 8 cases in January on the Growth plan, the 3 unused roll to February, giving you 14 available.
+Firms with an active TrueVow INTAKE subscription get a flat $30/case discount across all plans:
 
-**Additional cases beyond plan limit:** Billed at the plan's effective per-case rate: Growth $109/case, Team $95/case.
+| Tier | Standard | With INTAKE | Savings |
+|------|----------|------------|---------|
+| Solo | $199/case | **$169/case** | $30 |
+| 5-Pack | $895 ($179/case) | **$745 ($149/case)** | $150 |
+| Growth | $1,199/mo | **$869/mo** | $330 |
+| Team | $1,999/mo | **$1,369/mo** | $630 |
 
-## What's Included (Every Plan)
+This mirrors SETTLE's $29 ecosystem rate vs. $39 standalone. The PI Operating System cross-sell: "You're already getting better intake. Get better case prep at a better rate."
 
-All 57 features. No feature gating:
-- SOL auto-calculation (50 states)
-- Provider extraction + NPI lookup + confirmation gate
-- Outbound fax with HIPAA cover sheets
-- Inbound email + fax reception
-- Mistral OCR + document dedup
-- Chronology builder with source citations
-- 15 clinical flag types with attorney annotation
-- 4 gated checkpoints (HIPAA → Providers → Fax → Flags)
-- Lien tracking (6 types, 4 statuses)
-- Readiness board + demand-ready gate
-- PDF + JSON export
-- Deterministic medical summaries (Phase 2)
-- Demand template builder (Phase 2)
-- Provider follow-up scheduler (Phase 2)
-- Separate PHI store + audit log + pre-signed URLs
+### How the Math Works
 
-## First 11 Cases Free (or 90 Days — Whichever Expires First)
+| Scenario | Solo | 5-Pack | Growth | Team |
+|----------|------|--------|--------|------|
+| 1 case | $199 | $179 | Overkill | Overkill |
+| 3 cases | $597 | $895 (overpay) | Overkill | Overkill |
+| 5 cases | $995 | $895 ($100 saved) | Overkill | Overkill |
+| 6 cases | $1,194 | 5-pack + 1 solo = $1,094 | $1,199 (breakeven) | Overkill |
+| 8 cases | $1,592 | 5-pack + 3 solo = $1,492 | $1,199 ($393 saved) | Overkill |
+| 11 cases | $2,189 | 5-pack × 2 + 1 = $1,989 | $1,199 ($990 saved) | Overkill |
+| 14 cases | $2,786 | 5-pack × 2 + 4 solo = $2,586 | $1,199 + 3 × $109 = $1,526 | Overkill |
+| 16 cases | $3,184 | 5-pack × 3 + 1 solo = $2,884 | $1,199 + 5 × $109 = $1,744 | $1,999 ($1,185 saved vs per-case) |
+| 21 cases | $4,179 | 5-pack × 4 + 1 solo = $3,779 | $1,199 + 10 × $109 = $2,289 | $1,999 ($2,180 saved vs per-case) |
 
-Same offer structure as INTAKE. Every new firm gets up to 11 cases free for their first 90 days — whichever limit they hit first. This gives them enough volume to experience TRACE on multiple real cases before committing to a paid plan.
+### The Psychology of Each Tier
 
-| Scenario | What Happens |
-|----------|-------------|
-| Firm does 4 cases in 90 days | 4 cases free. Day 91: paid plan begins (Solo, Growth, or Team). |
-| Firm does 14 cases in 45 days | First 11 free. Cases 12-14 billed at $199 each. Day 46: paid plan begins. |
-| Firm does 0 cases in 90 days | No charge. Day 91: firm chooses plan or account goes dormant. |
+| Tier | Buyer Psychology | When They Move Up |
+|------|-----------------|-------------------|
+| **Solo** | "I don't know my volume. $199 when I need it. No commitment." | After 5th case in a month, the 5-pack would have saved $100. They notice. |
+| **5-Pack** | "I know I'll do at least a few cases. 10% off without a monthly bill." | Once they hit 2 packs in a month ($1,789), Growth at $1,199 is cheaper. |
+| **Growth** | "I do 6-8 cases every month. At $109/case, this is almost half off." | When volume consistently exceeds 11, Team at $95/case is the better rate. |
+| **Team** | "We do 15-20 cases monthly. $95/case is insurance adjuster math — it's invisible in our economics." | They stay here or go custom at 30+ cases. |
 
-After the free period, the firm selects Solo (per-case), Growth ($1,199/mo for 11 cases), or Team ($1,999/mo for 21 cases).
-
-## Monthly Rollover Rules
+### Rollover Rules
 
 | Rule | Detail |
 |------|--------|
 | **Rollover window** | Unused cases carry to the next month only (1-month carry-forward) |
-| **Rollover cap** | One month's allocation maximum. Growth can carry up to 11 unused. Team up to 21. |
-| **Usage order** | New month's allocation used first, then rollover cases from prior month |
-| **Expiration** | Cases older than 1 month expire. No indefinite banking. |
+| **Rollover cap** | One month's allocation max. Growth: up to 11 unused. Team: up to 21. |
+| **Usage order** | New month's allocation first, then rollover from prior month |
+| **Expiration** | Cases older than 1 month expire |
+| **5-Pack** | No expiry. Use anytime. No rollover — it's a pack, not a subscription. |
 
-**Example (Growth plan, $1,199/mo, 11 cases):**
-- January: 8 cases used. 3 roll to February.
-- February: 11 new + 3 rollover = 14 available. 12 used. 2 roll to March.
-- March: 11 new + 2 rollover = 13 available. 10 used. 3 roll to April.
+### First 11 Cases Free (or 90 Days — Whichever Expires First)
 
-**Why 1-month rollover?** Prevents the "buy one month of Growth on January 1, use 11 cases across the entire year" loophole. The subscription is priced assuming regular usage. One-month carry-forward is generous enough for volume fluctuation without creating a pricing arbitrage.
+Same offer structure as INTAKE. Every new firm gets up to 11 cases free within their first 90 days:
+
+| Scenario | What Happens |
+|----------|-------------|
+| Firm does 4 cases in 90 days | 4 cases free. Day 91: firm chooses paid plan. |
+| Firm does 14 cases in 45 days | First 11 free. Cases 12-14 billed at $199 each. Day 91: firm chooses paid plan. |
+| Firm does 0 cases in 90 days | No charge. Day 91: firm chooses plan or account goes dormant. |
+
+### No Hidden Costs
+
+- No per-fax fee (unlimited faxes)
+- No per-page OCR fee
+- No document storage fee
+- No AI surcharge
+- No per-user fee
+- No setup fee
+- No charge if case has zero records processed (mirrors SETTLE's no-charge guarantee)
 
 ## The Psychology
 
