@@ -190,7 +190,7 @@ Every PI attorney faces the same decision every year: hire another employee, or 
 
 | Attribute | Paralegal | TRACE |
 |----------|-----------|-------|
-| Annual cost (50 cases) | $54,000+ | $7,450 |
+| Annual cost (50 cases) | $54,000+ | $9,950 |
 | Onboarding time | 3 months | Zero |
 | Scalability (add 30 cases) | Hire another person ($54K) | $4,470 |
 | Error rate on clinical flags | 40-60% missed | Near 0% |
@@ -200,7 +200,7 @@ Every PI attorney faces the same decision every year: hire another employee, or 
 | Learns from every case | No (knowledge walks out the door) | Yes (flag engine improves) |
 | Spanish capability | Depends on hire | ✓ (via INTAKE) |
 
-**The paralegal is a $54,000 annual risk. TRACE is a $7,450 annual certainty.** Every sales conversation should lead with this comparison.
+**The paralegal is a $54,000 annual risk. TRACE is a $9,950 annual certainty.** Every sales conversation should lead with this comparison.
 
 ---
 
@@ -245,39 +245,70 @@ Male, ~52 years old. 15-25 years practicing. 0-1 staff. $150K-$500K revenue. 30-
 
 # SECTION 6 — PRICING
 
-## Core Model: Per-Case
+## One Product. One Price Per Case. One Scale.
 
-| Plan | Per Case | What's Included | Annual (50 cases) |
-|------|---------|----------------|-------------------|
-| **TRACE** | $149 | All 57 features listed in Section 8 | $7,450 |
-| **TRACE Pro** | $289 | Everything + deterministic medical summaries, demand template builder, provider follow-up scheduler, priority OCR | $14,450 |
+TRACE has no feature tiers. Every plan includes all 57 features. The only difference is volume commitment. The more cases you commit to, the less you pay per case.
 
-**First 3 cases free.** No setup fee. No per-fax fee. No per-page fee. No storage fee. No AI surcharge.
+| Tier | Model | Price | Per-Case | Break-Even | Best For |
+|------|-------|-------|----------|------------|----------|
+| **Solo** | Per-Case | $199/case | $199 | No commitment | Attorneys doing 1-9 cases/month |
+| **Growth** | Monthly, up to 11 cases | $1,199/mo | $109/case | 6 cases | Firms doing 6-11 cases/month |
+| **Team** | Monthly, up to 21 cases | $1,999/mo | $95/case | 10 cases | Firms doing 10-21 cases/month |
+| **Enterprise** | Monthly, custom | Negotiated | Negotiated | 22+ cases | Firms doing 22+ cases/month |
 
-## Volume Discounts
+## How the Math Works
 
-| Cases/Month | Discount | TRACE Cost/Case | TRACE Pro Cost/Case |
-|-------------|----------|----------------|---------------------|
-| 1-9 | None | $149 | $289 |
-| 10-19 | 20% | $119 | $231 |
-| 20-49 | 30%+ | $99 | $199 |
-| 50+ | Custom | Negotiated | Negotiated |
+| Scenario | Solo (per-case) | Growth (subscription) | Team (subscription) |
+|----------|----------------|----------------------|---------------------|
+| 3 cases this month | $597 | $1,199 (overpaying — use Solo) | $1,999 (overpaying — use Solo) |
+| 6 cases this month | $1,194 | $1,199 (breakeven) | $1,999 (overpaying — use Growth) |
+| 8 cases this month | $1,592 | $1,199 ($393 saved) | $1,999 (overpaying — use Growth) |
+| 11 cases this month | $2,189 | $1,199 ($990 saved) | $1,999 ($190 saved vs Growth if you need more) |
+| 15 cases this month | $2,985 | $1,199 + 4 × $109 = $1,635 ($1,350 saved) | $1,999 ($1,986 saved vs per-case) |
+| 21 cases this month | $4,179 | $1,199 + 10 × $109 = $2,289 | $1,999 ($2,180 saved vs per-case) |
 
-## Hybrid Option for Growth Firms (10+ cases/month)
+**Subscription rollover:** Unused cases roll to the next month (up to one month). So if you do 8 cases in January on the Growth plan, the 3 unused roll to February, giving you 14 available.
 
-For firms with predictable volume who prefer a subscription model:
+**Additional cases beyond plan limit:** Billed at the plan's effective per-case rate: Growth $109/case, Team $95/case.
 
-| Option | Monthly | Includes | Best For |
-|--------|---------|----------|----------|
-| **Growth 10** | $1,190/mo | 10 cases ($119/case), rollover unused | Firms with 8-12 cases/month |
-| **Growth 20** | $1,980/mo | 20 cases ($99/case), rollover unused | Firms with 15-25 cases/month |
-| **Growth 50** | Custom | Negotiated | Firms with 40+ cases/month |
+## What's Included (Every Plan)
 
-Additional cases beyond included quantity: billed at the discounted per-case rate.
+All 57 features. No feature gating:
+- SOL auto-calculation (50 states)
+- Provider extraction + NPI lookup + confirmation gate
+- Outbound fax with HIPAA cover sheets
+- Inbound email + fax reception
+- Mistral OCR + document dedup
+- Chronology builder with source citations
+- 15 clinical flag types with attorney annotation
+- 4 gated checkpoints (HIPAA → Providers → Fax → Flags)
+- Lien tracking (6 types, 4 statuses)
+- Readiness board + demand-ready gate
+- PDF + JSON export
+- Deterministic medical summaries (Phase 2)
+- Demand template builder (Phase 2)
+- Provider follow-up scheduler (Phase 2)
+- Separate PHI store + audit log + pre-signed URLs
 
-## Why Per-Case? Why Also Hybrid?
+## First Case Free
 
-Most PI firms have predictable volume. Per-case billing is attractive in slow months — the ICP loves it. But larger firms with consistent pipelines may prefer subscription predictability. Offering both options captures both buying behaviors without diluting the per-case differentiator. The per-case anchor also makes the subscription look like a deal — "10 cases for $1,190 instead of $1,490."
+Every new firm gets their first case free — unrestricted, all features — to experience TRACE on a real case before paying.
+
+## The Psychology
+
+- **Solo buyer:** "I don't know my volume. $199 when I need it. No commitment."
+- **Growth buyer:** "I know I'll do at least 6 cases. At $1,199/month, I break even and every case after that is cheaper."
+- **Team buyer:** "We do 15-20 cases every month. At $95/case, this is less than half of what a paralegal costs."
+- **The one-liner:** "$199 per case, or subscribe for better rates."
+
+## No Hidden Costs
+
+- No per-fax fee (unlimited faxes)
+- No per-page OCR fee
+- No document storage fee
+- No AI surcharge
+- No per-user fee
+- No setup fee
 
 ---
 
@@ -390,7 +421,7 @@ Most PI firms have predictable volume. Per-case billing is attractive in slow mo
 
 | | Paralegal | TRACE |
 |---|---|---|
-| Annual cost | $59,000-$69,000 (salary + benefits + overhead) | $7,450 (50 cases) |
+| Annual cost | $59,000-$69,000 (salary + benefits + overhead) | $9,950 (50 cases) |
 | Error rate | 40-60% of clinical issues missed | Near 0% (deterministic) |
 | Working hours | 40/week | 24/7 |
 | Scalability | Hire another person | Add cases |
@@ -404,8 +435,9 @@ Most PI firms have predictable volume. Per-case billing is attractive in slow mo
 
 | Competitor | Model | Entry | Mid | High |
 |-----------|-------|-------|-----|------|
-| **TRACE** | **Per-Case** | **$149** | — | **$289** |
-| **TRACE Growth** | **Hybrid** | **$1,190/mo (10 cases)** | **$1,980/mo (20 cases)** | **Custom** |
+| **TRACE** | **Per-Case** | **$199/case** | — | — |
+| **TRACE Growth** | **Monthly** | **$1,199/mo (11 cases)** | — | — |
+| **TRACE Team** | **Monthly** | **$1,999/mo (21 cases)** | — | — |
 | TAVRN AI | Monthly | $99/mo | $299/mo | Custom |
 | Eve.Legal | Monthly | $500/mo | $1,000/mo | $2,000+ |
 | CloudLex | Per-User | $65/mo | $99/mo | $149/mo |
@@ -520,7 +552,7 @@ Now customers don't compare individual products. They compare entire firm operat
 | AI Chronology (TAVRN, Eve) | "We don't generate AI narratives. We build auditable evidence." |
 | Practice Management (Clio, CloudLex) | "We're the medical records layer they don't provide." |
 | Record Retrieval Services (ChartSwap) | "We're software, not a per-request service. Unlimited faxes included." |
-| Hiring a Paralegal | "$149/case vs. $54,000/year. Deterministic quality vs. human variability." |
+| Hiring a Paralegal | "$199/case vs. $54,000/year. Deterministic quality vs. human variability." |
 
 ---
 
