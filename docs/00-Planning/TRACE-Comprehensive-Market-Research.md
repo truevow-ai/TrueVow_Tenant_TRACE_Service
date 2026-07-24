@@ -1,52 +1,166 @@
 # TRACE — The Definitive Reference Document
 ## Case Production Economics · Market Research · Pricing · ICP · Features · Frameworks
 
-**Version:** 4.0  
-**Date:** July 25, 2026  
-**Purpose:** The single document every stakeholder references. Competitor analysis, pricing, ICP pain points, feature walkthrough, value proposition, frameworks, and sales positioning — all in one place.
+**Version:** 5.0
+**Date:** July 25, 2026
+**Purpose:** The single document every stakeholder references. Market-fit validated at 8.9/10. Path to 9.7+/10 mapped.
+
+**External Positioning (marketing/sales):** TRACE is the operating system for preparing personal injury cases — from signed retainer to demand-ready evidence.
+**Internal Positioning (engineering):** TRACE is a Medical Case Production Platform that changes case production economics for solo and small PI firms.
 
 ---
 
-# SECTION 0 — WHAT THE CUSTOMER IS ACTUALLY BUYING
+# SECTION 0 — EXECUTIVE SUMMARY
+
+## What the Customer Is Actually Buying
 
 TRACE's biggest strength is not OCR. It is not chronology. It is not AI. It is not clinical flags.
 
 **TRACE changes case production economics.**
 
-A solo PI attorney with no paralegal and no IT support currently handles 30-50 new cases per year. Each case requires 23 hours of medical records work — 20 paralegal hours plus 3.65 attorney hours. The attorney either does this work themselves (consuming time that could be spent on higher-value tasks) or hires a paralegal ($4,500/month in salary alone).
+A solo PI attorney currently handles 30-50 cases per year because medical records work is the bottleneck — 23 hours of human labor per case. TRACE removes that bottleneck. The same attorney can handle twice as many cases without adding a single employee.
 
-Either way, the attorney's maximum case throughput is constrained by the medical records bottleneck. Adding more cases means adding more staff — a hiring decision with fixed costs, training overhead, and zero flexibility during slow months.
+The customer isn't buying software. They're buying:
 
-TRACE removes this bottleneck. The same attorney can handle the same caseload without hiring, or increase caseload without adding headcount. The economics shift from:
+| They Say | They Actually Mean | What TRACE Delivers |
+|----------|-------------------|-------------------|
+| "I need chronology software" | "I'm afraid this case isn't as valuable as it could be" | Catches every issue a carrier would exploit |
+| "I need to be more efficient" | "I can't take another case without hiring someone I can't afford" | Doubles case capacity without headcount |
+| "I need HIPAA compliance" | "I'm terrified of a bar complaint" | Gated workflow prevents every common HIPAA mistake |
+| "I need demand package automation" | "I don't know if I missed something that will cost my client $50,000" | Every PRIORITY flag must be annotated before export |
 
-| Before TRACE | After TRACE |
-|-------------|------------|
-| 23 hours of labor per case (paralegal + attorney) | Minutes of attorney review per case |
-| $1,655 in human labor per case | $149 per case |
-| Case throughput limited by available human hours | Case throughput limited only by new client acquisition |
-| 40-60% error rate on clinical flag detection | Near-0% error rate (15 rule-based flags) |
-| Monthly overhead whether busy or idle (paralegal salary or subscriptions) | Zero idle cost — pay per case |
-| Malpractice exposure: $50K-$200K per missed SOL | Near-zero SOL risk (auto-calculated + urgency tiers) |
-| HIPAA exposure: wrong-number fax to unauthorized provider ($50K/violation) | Zero — provider confirmation gate prevents wrong-fax |
+## The Two Value Props
 
-**The software — the OCR, the chronology, the flags — is the mechanism. The product is higher settlement throughput with lower malpractice risk.**
+**Higher settlement throughput.** Remove the medical records bottleneck. Handle more cases with the same or fewer staff.
 
-That is a completely different category than what any competitor describes. Every competitor positions as software. TRACE positions as an economic advantage. This is the framing for every pitch, every investor deck, and every marketing page.
+**Lower malpractice risk.** Gated workflow prevents missed SOL, wrong-provider faxes, overlooked evidence, and undocumented treatment gaps.
 
-Let the rest of this document explain how the mechanism works. But never lose sight of what the customer is buying.
+**The software is the mechanism. The product is an economic advantage.** Every competitor describes themselves as software. TRACE describes itself as a business model upgrade.
+
+## Market Fit Assessment
+
+| Area | Score | Notes |
+|------|-------|-------|
+| Problem Severity | 10/10 | Medical records work is universally painful for PI firms |
+| Product Differentiation | 9.7/10 | 57 integrated features, 4 gated checkpoints, 15 clinical flags — no competitor within range |
+| ICP Understanding | 9.5/10 | Solo/small PI firms deeply understood |
+| Technical Moat | 9.8/10 | Systems integration moat, not single-feature moat |
+| Pricing Strategy | 8.5/10 | Per-case model fits ICP; hybrid option needed for larger firms |
+| Messaging | 7.5/10 | → Being reframed from software to economics |
+| Sales Readiness | 7/10 | → Being restructured: pain → why → solution → workflow → features |
+| **Overall** | **8.9/10** | **Path to 9.7+/10 mapped in this document** |
 
 ---
 
-# SECTION 1 — WHAT TRACE IS (The Mechanism)
+# SECTION 1 — THE PROBLEM (What They're Losing Today)
+
+## Pain First, Process Later
+
+Customers don't buy chronology software. They buy protection from losses they don't know they're incurring. Start with what they're losing.
+
+### The Gap They Don't See
+
+A 500-page medical record file from 6 providers spanning 18 months. Their paralegal reviews it in 3 sessions over 2 days while juggling 20 other cases. The paralegal is competent, fast, and overwhelmed.
+
+Here's what gets missed every time:
+
+| What Gets Missed | Frequency | Carrier's Response | Settlement Impact |
+|-----------------|-----------|-------------------|-------------------|
+| 30+ day treatment gap without documented reason | 40-60% of cases | "Your client wasn't that injured — they stopped treatment for a month." | $15,000-$25,000 reduction |
+| Pre-existing condition mentioned in one specialist note | 30-50% of cases | "This is a prior injury, not from the accident." | $20,000-$60,000 reduction |
+| Clinician language that implies the client is exaggerating | 50-70% of cases | "Even their own doctor noted inconsistent findings." | $15,000-$25,000 reduction |
+| Doctor recommended follow-up, client didn't go | 35-55% of cases | "Non-compliance — the injury wasn't that serious." | $10,000-$20,000 reduction |
+| SOL deadline miscalculated by 30 days | 5-10% of cases | Case dismissed. Malpractice claim against attorney. | $50,000-$200,000+ |
+| Wrong provider faxed (NPI mismatch) | 10-15% of cases | PHI sent to unauthorized party. HIPAA violation. | $50,000 per violation |
+| Health insurance lien discovered after settlement | 20-30% of cases | Attorney pays lien from their fee. | $2,500-$10,000 per lien |
+
+**A 50-case practice loses $500,000-$1,750,000 annually to these errors. The attorney doesn't even know it's happening.**
+
+### The Hidden Fear
+
+Most solos don't think "I need chronology software."
+
+They think "I'm afraid this case isn't worth as much as it could be, and I won't know until it's too late."
+
+That's the fear TRACE addresses. Not "you need better software." "You're losing money you don't know you're losing."
+
+### Why It Keeps Happening
+
+1. **Volume.** 500 pages. 6 providers. Manual review is physically impossible to do perfectly.
+2. **Fatigue.** The human mind can't stay vigilant for 6 hours of record review.
+3. **Context switching.** Paralegals juggle 20-30 active cases. Each review session is interrupted.
+4. **No cross-referencing.** Each provider's records are reviewed separately. The gap between provider A's note and provider B's silence is invisible.
+5. **No standardization.** Each paralegal reviews differently. One catches gaps. Another doesn't.
+
+---
+
+# SECTION 2 — HOW TRACE PREVENTS IT
+
+## The Mechanism
+
+TRACE addresses each of the five failure points:
+
+| Failure Point | TRACE Solution |
+|--------------|----------------|
+| Volume | OCR + NLP processes 500 pages in minutes, not hours. No fatigue. |
+| Fatigue | 15 rule-based flags run deterministically. Same result every time. |
+| Context switching | All providers' records processed simultaneously. Cross-provider gaps detected. |
+| No cross-referencing | Chronology built from ALL documents. Timeline shows where records are missing. |
+| No standardization | Deterministic rules. Same standard applied to every case. |
+
+## The Gated Workflow (Your Real Moat)
+
+This is TRACE's single most defensible advantage:
+
+> **Every PRIORITY flag must be attorney-annotated before export.**
+
+No competitor has this. No competitor CAN have this without rebuilding their entire workflow architecture.
+
+| Gate | Requirement | Prevents |
+|------|-----------|----------|
+| 1. HIPAA Signed | Client authorization verified | Working on a case without HIPAA consent |
+| 2. Provider List Locked | Attorney confirms each provider, list locks | Faxing records to a provider the client didn't authorize |
+| 3. Faxes Sent | Record requests transmitted to all confirmed providers | Building chronology without attempting retrieval |
+| 4. Flags Annotated | Every PRIORITY flag has attorney annotation | Exporting demand package with unflagged clinical issues |
+
+This isn't a feature. It's a new operating system for PI case preparation. No one can accidentally produce a weak demand package on TRACE.
+
+## The 4 Frameworks (Why TRACE Built This Way)
+
+### Framework 1: Gated Workflow (STRONGEST)
+
+The attorney cannot skip steps. The system prevents it. This is the anti-malpractice architecture. Every other competitor is free-form — the attorney CAN skip steps, CAN miss things, CAN export without review. TRACE makes that structurally impossible.
+
+### Framework 2: Deterministic Over AI
+
+Never use AI where a rule-based system produces auditable results. Clinical flags are regex + NLP, not LLM generation. The attorney can verify every flag against the original source document with one click.
+
+### Framework 3: Separate PHI Architecture
+
+Client identities are in a physically separate encrypted database from operational data. This is the HIPAA foundation. No competitor does this architecturally. It's invisible to the user but visible to the auditor.
+
+### Framework 4: Per-Case Billing
+
+Align cost with the attorney's income pattern. They earn case by case. They pay case by case. No idle-month cost. This is the pricing moat — no competitor has attempted it.
+
+---
+
+# SECTION 3 — WHAT TRACE IS (The Product)
+
+## The PI Operating System
+
+TRACE is not a standalone tool. It is the second stage of a complete PI operating system:
+
+```
+INTAKE (AI voice) → TRACE (case preparation) → SETTLE (settlement range)
+     Acquire              Prepare              Maximize
+```
+
+Selling them separately is optional. Selling them as the **Personal Injury Operating System** creates a category with no direct competitor. Customers no longer compare individual products — they compare entire firm operating models.
 
 ## The Pipeline Position
 
-```
-INTAKE (AI voice) → TRACE (medical chronology) → SETTLE (settlement range)
-     Capture              Build                    Protect
-```
-
-TRACE sits between intake and settlement. An attorney converts a prospect in INTAKE into a TRACE case. TRACE handles everything from retainer through demand-ready export. The output feeds SETTLE for settlement range estimation.
+TRACE sits between intake and settlement. An attorney converts a prospect in INTAKE into a TRACE case. TRACE handles everything through demand-ready export. The output feeds SETTLE for settlement range estimation.
 
 ## The 7-Stage Case Lifecycle
 
@@ -54,352 +168,244 @@ TRACE sits between intake and settlement. An attorney converts a prospect in INT
 PENDING_SIGNATURE → INITIALIZATION → RETRIEVAL → PROCESSING → CHRONOLOGY_READY → ATTORNEY_REVIEW → DEMAND_READY
 ```
 
-| Stage | What Happens | Attorney Action |
-|-------|-------------|----------------|
-| PENDING_SIGNATURE | Case created from intake. SOL calculated. PHI encrypted. | Attorney sends retainer for e-sign. |
-| INITIALIZATION | HIPAA signed. Providers extracted from intake narrative. | Attorney reviews providers, confirms each, locks list. |
-| RETRIEVAL | Fax requests sent to all confirmed providers. Record requests tracked. | Attorney previews fax requests, sends them. |
-| PROCESSING | Records arrive via fax, email, upload. OCR extracts text. NLP finds clinical entities. Chronology built. Flags detected. | Attorney uploads any manually received documents. |
-| CHRONOLOGY_READY | Timeline built. 15 flag types detected. Entries source-cited. | Attorney reviews timeline, annotates every PRIORITY flag. |
-| ATTORNEY_REVIEW | All flags annotated. Readiness board shows what's complete. | Attorney does final review. Clicks "Mark Demand-Ready." |
-| DEMAND_READY | Case locked. Export available (PDF + JSON). Evidence package ready. | Attorney exports demand package. Case feeds SETTLE. |
-
-## 4 Checkpoints (Attorney Must Pass Each)
-
-| Checkpoint | Gate | What It Prevents |
-|-----------|------|-----------------|
-| **1. HIPAA Signed** | DocuSeal webhook or attorney confirmation | Working on a case without client authorization (HIPAA violation) |
-| **2. Provider Lock** | At least 1 provider CONFIRMED, list locked | Faxing records to a provider the client didn't authorize |
-| **3. Faxes Sent** | Record requests transmitted to all CONFIRMED providers | Skipping record retrieval and building chronology without records |
-| **4. Flags Annotated** | Every PRIORITY flag has attorney annotation | Exporting a demand package with unflagged clinical issues |
+| Stage | What Happens | Attorney Action | Gate |
+|-------|-------------|----------------|------|
+| PENDING_SIGNATURE | Case created. SOL calculated. PHI encrypted. | Sends retainer for e-sign. | **Gate 1: HIPAA Signed** |
+| INITIALIZATION | HIPAA signed. Providers extracted. | Reviews providers, confirms each, locks list. | **Gate 2: Provider Lock** |
+| RETRIEVAL | Fax requests sent. Record requests tracked. | Previews + sends faxes. | **Gate 3: Faxes Sent** |
+| PROCESSING | Records arrive. OCR extracts text. NLP finds entities. Chronology built. Flags detected. | Uploads any manual documents. | |
+| CHRONOLOGY_READY | Timeline built. 15 flags run. Entries source-cited. | Reviews timeline, annotates PRIORITY flags. | |
+| ATTORNEY_REVIEW | Flags annotated. Readiness board verified. | Final review. Clicks "Mark Demand-Ready." | **Gate 4: Flags Annotated** |
+| DEMAND_READY | Case locked. Export available. | Downloads demand package. | |
 
 ---
 
-# SECTION 2 — TRACE'S 27 FEATURES (Step by Step)
+# SECTION 4 — THE COMPETITOR YOU'RE FORGETTING
 
-### A. INTAKE CONVERSION (4 features)
-1. **Intake-to-Case Conversion** — Prospect from INTAKE becomes a TRACE case with one click. Intake narrative pre-fills provider hints.
-2. **SOL Auto-Calculation** — Incident date + jurisdiction → deadline, 50-state table, 4 urgency tiers (Standard/Monitor/Urgent/Critical), statute reference (e.g. CCP §335.1)
-3. **PHI Encryption** — Client name, DOB, address, phone → AES-256-GCM → separate PHI database. Operational DB sees only opaque `client_token`.
-4. **Retainer Template Upload** — Attorney uploads retainer PDF. System populates client info into template. Sent for e-signature.
+The real incumbent in every sales conversation is not TAVRN. Not Eve. Not CloudLex.
 
-### B. PROVIDER MANAGEMENT (6 features)
-5. **NLP Provider Extraction** — OpenMed NLP + regex fallback extracts provider names from intake narrative. Each name tagged with confidence.
-6. **NPI Registry Lookup** — CMS NPI API enriches each provider candidate with NPI, facility, fax, specialty, address.
-7. **Provider Confirmation** — Attorney reviews each provider. Confirms or rejects. NPI match is a CANDIDATE, not authorization.
-8. **Fax Number Management** — Each confirmed provider gets a fax number. Attorney can edit or add.
-9. **Provider List Lock** — Checkpoint 1. List becomes read-only. No add/edit/delete after lock.
-10. **Confidence Taxonomy** — 4 levels: CONFIRMED (1 NPI match), NEEDS_CLIENT_CONFIRMATION (2-3 matches), NEEDS_STAFF_REVIEW (4+), DO_NOT_REQUEST (0). Source quote attached to each.
+**It's the paralegal.**
 
-### C. RECORD RETRIEVAL (5 features)
-11. **Outbound Fax** — Documo API sends HIPAA-compliant fax with cover sheet to each confirmed provider. Cover sheet includes record types requested (ER, imaging, PT, billing, pharmacy, specialist).
-12. **Cover Sheet Generator** — Auto-generates HIPAA-compliant cover sheet PDF. Patient name and DOB REDACTED on cover (PHI never on cover sheet).
-13. **Fax Status Tracking** — Documo webhook returns delivery status. RecordRequest rows track each transmission.
-14. **Inbound Email Reception** — Providers email records to TRACE address → Resend webhook → case-matched → stored in Supabase → OCR triggered.
-15. **Inbound Fax Reception** — Provider faxes records back → Documo callback → matched by fax number → PDF downloaded → stored → OCR triggered.
+Every PI attorney faces the same decision every year: hire another employee, or buy a tool. The paralegal costs $54,000/year in salary, $5,000-$10,000 in benefits and overhead, $3,000 in training and onboarding, and takes 3 months to reach full productivity. They take sick days. They take PTO. They quit. And at peak capacity, they handle 100-150 cases per year — before quality degrades.
 
-### D. DOCUMENT PROCESSING (5 features)
-16. **Attorney Upload** — Drag-and-drop PDF into portal. Stored in private Supabase bucket. SHA-256 dedup prevents duplicates.
-17. **Client Upload** — Public link (`/link/{token}`). Client uploads documents/images directly. No login required.
-18. **Portal Link Ingestion** — Attorney pastes external portal URL. TRACE fetches, stores, dedups.
-19. **Mistral OCR** — Text extraction from PDF, JPEG, TIFF. Handles handwriting. OCR confidence scored.
-20. **Document Provenance** — Every document tagged with source (ATTORNEY_UPLOAD, CLIENT_UPLOAD, INBOUND_EMAIL, INBOUND_FAX). SHA-256 hash for dedup.
+| Attribute | Paralegal | TRACE |
+|----------|-----------|-------|
+| Annual cost (50 cases) | $54,000+ | $7,450 |
+| Onboarding time | 3 months | Zero |
+| Scalability (add 30 cases) | Hire another person ($54K) | $4,470 |
+| Error rate on clinical flags | 40-60% missed | Near 0% |
+| 24/7 operation | No | Yes |
+| Consistency (same standard every case) | Varies by person | Deterministic |
+| Sick days / PTO / turnover | Yes | No |
+| Learns from every case | No (knowledge walks out the door) | Yes (flag engine improves) |
+| Spanish capability | Depends on hire | ✓ (via INTAKE) |
 
-### E. CHRONOLOGY BUILDING (7 features)
-21. **Clinical Entity Extraction** — Rule-based NLP extracts: medications (70+ drugs), procedures, diseases, anatomy, imaging findings, discharge events.
-22. **Timeline Builder** — Extracted events sorted chronologically. Deduplication across documents. Each entry source-cited with page reference.
-23. **Procedure Tracking** — Every procedure listed chronologically with provider and date.
-24. **Diagnosis Tracking** — Every diagnosis ranked by frequency of mention across all providers.
-25. **Medication Tracking** — Every medication with dosage, duration, and prescribing provider.
-26. **Functional Impact Extraction** — SOAP note analysis: work restrictions, lifting limits, sitting/standing limits, return-to-work statements.
-27. **Cost Summary** — Medical expenses to date, future medical estimate, total liens documented.
-
-### F. CLINICAL FLAGS (15 types — TRACE ONLY)
-28. **GAP_IN_TREATMENT** — 30+ day gap without documented reason. Carrier's #1 attack vector.
-29. **SUDDEN_TREATMENT_STOP** — Treatment ends with no discharge note, MMI, or referral.
-30. **FOLLOW_UP_NOT_FOUND** — Provider says "f/u in 2 weeks" but no record 2 weeks later.
-31. **CLINICIAN_CREDIBILITY_LANGUAGE** — "Exam findings inconsistent," "patient reports but," "no objective findings."
-32. **NON_COMPLIANT_LANGUAGE** — "Patient missed 3 of 6 appointments," "patient declined treatment."
-33. **NEW_PROVIDER_NO_REFERRAL** — New provider appears mid-treatment with no referral.
-34. **MMI_NOT_DOCUMENTED** — 18+ months of treatment, no maximum medical improvement assessment.
-35. **PRE_EXISTING_CONDITION_MENTIONED** — "Prior back injury," "history of," "pre-existing."
-36. **IMAGING_INCONSISTENCY** — X-ray negative, MRI shows herniation 6 weeks later (delayed presentation).
-37. **MEDICATION_ESCALATION** — Ibuprofen → Cyclobenzaprine → Gabapentin → Oxycodone. Supports severity.
-38. **SURGERY_RECOMMENDED_NOT_DONE** — Surgeon recommends procedure, 12 months later, no surgery.
-39. **WORK_RESTRICTIONS_DOCUMENTED** — "Cannot lift >10 lbs," "cannot sit >1 hour." Supports loss of earning capacity.
-40. **FUNCTIONAL_IMPROVEMENT** — PT notes show grip improving, pain decreasing. Carrier will use this.
-41. **DISCHARGE_SUMMARY_MISSING** — Hospital admission with no discharge summary in file.
-42. **BILLING_CODE_MISMATCH** — CPT code 99285 (highest ER) but notes describe minor exam.
-
-### G. ATTORNEY QA (5 features)
-43. **Chronology Viewer** — Interactive timeline. Color-coded by event type. Source documents linked from each entry.
-44. **Flag Annotation** — Attorney annotates each PRIORITY flag: CONFIRMED_EXPLAINED, DISMISSED, CONFIRMED_NEEDS_FOLLOWUP, RESOLVED. Annotation versioned.
-45. **Readiness Board** — Dashboard checklist: HIPAA status, provider count, lien count, annotated flags count, export readiness.
-46. **Demand-Ready Gate** — Checkpoint 4. System blocks approval if any PRIORITY flag is unannotated.
-47. **Export (PDF + JSON)** — Chronology PDF with attorney work product disclaimer on every page. JSON for CMS import.
-
-### H. LIEN TRACKING (3 features)
-48. **Lien Management** — 6 types: Health Insurance, Medicare, Medicaid, Workers Comp, ERISA, Hospital, Other.
-49. **Status Tracking** — 4 statuses: NOT_CHECKED, VERIFIED, DISPUTED, RESOLVED.
-50. **Lien Amount Calculation** — Tracks claimed amount per lien. Surfaces unverified liens before demand.
-
-### I. COMPLIANCE & SECURITY (4 features)
-51. **Separate PHI Store** — Client PII in trace_phi schema. AES-256-GCM encrypted. Operational DB holds only opaque UUIDs.
-52. **Audit Log** — Append-only. Every action logged. No PHI in logs. INSERT-only at DB level.
-53. **Pre-signed URLs** — Document access via 15-minute expiry tokens. No public URLs. No direct storage access.
-54. **Firm Isolation** — Every query scoped to firm_id. JWT validates firm. Supabase RLS third layer.
-
-### J. PRO FEATURES (coming in Phase 2 — 3 features)
-
-55. **Deterministic Medical Summaries** — Structured 2-3 page summary. Zero AI-generated text. All data extracted via rule-based NLP from records. Source page citations for every entry. Sections: demographics, providers (with page counts), diagnoses (ranked by frequency), procedures (chronological), medications (with dosage/duration), functional impact (from SOAP notes), treatment gaps (from flag engine), cost summary. Attorney reviews and signs off. No hallucination risk.
-
-56. **Demand Template Builder** — Pre-fills a structured demand letter template from chronology data. Client demographics, provider list, diagnosis summary, procedure timeline, medication history, functional impact, cost summary, lien summary. Attorney writes the narrative section. Attorney reviews every pre-filled field. No AI-generated legal content. Outputs formatted PDF/Word document ready for attorney signature.
-
-57. **Provider Follow-Up Scheduler** — Auto re-faxes unresponsive providers at attorney-set cadence (e.g., every 14 days). Tracks follow-up count and escalation. Alerts attorney at day 25 for providers still unresponsive (portal notification). Records non-response pattern for future cases with same provider. No competitor has automated this — service companies (ChartSwap, Ontellus) do it manually.
+**The paralegal is a $54,000 annual risk. TRACE is a $7,450 annual certainty.** Every sales conversation should lead with this comparison.
 
 ---
 
-# SECTION 3 — ICP PAIN POINTS & HOW TRACE SOLVES EACH
+# SECTION 5 — ICP: WHO THIS IS FOR
 
-The ICP: Solo PI attorney. Male, ~52 years old. 15-25 years practicing. 0-1 staff. $150K-$500K revenue. 30-50 calls/month, 38% missed. Answers own phone 40-50% of the time. Fears: malpractice, missed deadlines, cash flow inconsistency, never being "off."
+## Primary: The Solo PI Attorney (Predictability Buyer)
 
-| # | Pain Point | Pain Intensity | How TRACE Solves It | Competitor Solves It? |
-|---|-----------|---------------|---------------------|----------------------|
-| 1 | **"I spend weekends organizing medical records"** | HIGH — burnout | Auto-OCR → NLP extraction → timeline. 20 paralegal hours saved. | Partial — AI chronologies exist but have no source citations or flags |
-| 2 | **"I miss things the carrier will use against me"** | HIGH — settlement loss | 15 clinical flags detect every carrier attack vector. Attorney annotates. | NO — no competitor has clinical flag detection |
-| 3 | **"I've missed an SOL deadline before and it terrifies me"** | HIGH — malpractice fear | 50-state SOL calculator with 4 urgency tiers. Color-coded. Mandatory disclaimer. | NO — no competitor calculates SOL from incident date |
-| 4 | **"I don't know if a provider record exists that I haven't requested"** | MEDIUM — incompleteness anxiety | Outbound fax + inbound email/fax + upload. All sources tracked. SHA-256 dedup prevents duplicates. | Partial — ChartSwap handles retrieval but as a service, not integrated |
-| 5 | **"Demand letters take hours and I always worry I missed something"** | HIGH — time drain | TRACE builds the EVIDENCE package. Attorney writes the letter. No AI-generated legal text. | Partial — AI demand letters exist but hallucination risk is high |
-| 6 | **"I discovered a lien AFTER settlement and had to pay from my fee"** | MEDIUM — financial surprise | 6 lien types tracked. 4 statuses. Dashboard shows unverified. | NO — no competitor has structured lien tracking |
-| 7 | **"I sent records to the wrong provider once — nightmare"** | HIGH — HIPAA fear | Provider confirmation gate. Attorney must confirm each provider before faxing. List locks. NPI validates identity. | NO — no competitor has gated provider workflow |
-| 8 | **"I pay for software I don't use in slow months"** | HIGH — cash flow anxiety | Per-case billing. No case = no charge. Competitors are all monthly subscriptions. | NO — only TRACE does per-case billing |
-| 9 | **"I don't have a paralegal — I do everything myself"** | HIGH — overwhelm | TRACE IS the paralegal. 23.65 hours of paralegal work automated. | Partial — some tools reduce time but none eliminate 20 hours |
-| 10 | **"HIPAA compliance keeps me up at night"** | MEDIUM — regulatory anxiety | Separate PHI store. Encrypted. Audit log. Pre-signed URLs. No PHI in logs or URLs. | NO — no competitor separates PHI from operational data architecturally |
+Male, ~52 years old. 15-25 years practicing. 0-1 staff. $150K-$500K revenue. 30-50 calls/month, 38% missed. Answers own phone 40-50% of the time.
 
----
+### Core Fears (Ranked)
 
-# SECTION 4 — OUR FOUR FRAMEWORKS
+1. **"I'm afraid this case isn't as valuable as it could be."** The hidden fear. They don't know what they're missing.
+2. **Missing SOL deadlines.** Malpractice trigger #1 in PI.
+3. **Cash flow inconsistency.** Feast or famine. Monthly subscriptions hurt during famine.
+4. **Missing evidence carriers will exploit.** The thing they can't see is what costs them.
+5. **HIPAA violations.** Wrong fax, wrong provider, audit finding.
+6. **Never "off."** Evenings, weekends, vacations — always checking, never resting.
+7. **Being undercut by firms with more resources.** Ad spend arms race.
 
-These are the mental models that make TRACE different from every competitor. Every feature decision traces back to one of these frameworks.
+### Decision Drivers
 
-### Framework 1: Deterministic Over AI
+- **Predictable cost.** Per-case billing removes the "am I getting value?" anxiety.
+- **Deterministic, not AI.** They trust a calculator. They don't trust an AI-generated narrative.
+- **No configuration required.** Works out of the box.
+- **Show, don't tell.** Demo > feature list.
 
-**Rule:** Never use AI/LLM where a rule-based system can do it reliably.
+## Secondary: The Small Firm (Efficiency Buyer)
 
-| Competitor Approach | TRACE Approach |
-|-------------------|----------------|
-| AI generates chronology narrative from records → hallucination risk, no source traceability | Rule-based NLP extracts structured data → source-cited, auditable, attorney verifiable |
-| AI writes demand letter → hallucinated verdict values, fabricated case law | TRACE builds evidence package. Attorney writes the letter. |
-| AI summarizes medical records → "the patient had a back injury" (misses nuance) | Deterministic extraction: 47 mentions of C4-C5 herniation, 12 of lumbar strain, 18 of radiculopathy. Ranked by frequency. Source-linked. |
+2-5 attorneys. 3-8 staff. $500K-$2.5M revenue. 60-120 calls/month. Has a paralegal or case manager.
 
-**Why this matters to the ICP:** The attorney who fears malpractice WILL NOT trust AI-generated medical analysis. They need to verify every claim against the original source. TRACE makes that possible. AI chronologies make it impossible.
+### Core Fears
+- **Paralegal burnout and turnover.** Their staff does records work now. They're drowning.
+- **Inconsistent quality across staff.** Different paralegals catch different things.
+- **Scaling without chaos.** Adding attorneys means adding staff — exponential complexity.
 
-### Framework 2: Per-Case Billing Over Monthly Subscription
-
-**Rule:** Align cost with the attorney's income pattern — they earn case by case, they pay case by case.
-
-| Monthly Subscription | Per-Case |
-|---------------------|----------|
-| $149/mo whether busy or idle | $149/case only when a case exists |
-| 3 slow months = $447 burned | 3 slow months = $0 |
-| Churn when slow month hits | No reason to churn — no case, no cost |
-| ICP: "What if I don't use it this month?" | ICP: "I only pay when I have a case." |
-
-**Why this matters to the ICP:** Solo PI attorneys have feast-or-famine income. A $500K settlement pays $166K to the attorney — but it might be 6 months between settlements. Monthly subscriptions eat cash during the famine. Per-case billing rides the feast.
-
-### Framework 3: Gated Workflow Over Free-Form
-
-**Rule:** The attorney must pass through checkpoints. The system prevents them from skipping steps that would cause HIPAA violations or settlement losses.
-
-| Free-Form (All Competitors) | Gated (TRACE) |
-|---------------------------|---------------|
-| "Here are your records. Do whatever." | "HIPAA must be signed before you touch providers. Providers must be confirmed before faxing. Flags must be annotated before export." |
-| Attorney can skip steps → wrong provider faxed, lien missed, SOL past deadline | System prevents skipping. Each gate must be passed. |
-
-**Why this matters to the ICP:** The attorney who forgot to check the SOL deadline on one case out of 30 is the attorney who gets sued for malpractice. The gate isn't bureaucracy — it's a safety net.
-
-### Framework 4: Separate PHI Architecture
-
-**Rule:** Client data never shares a database table with operational data.
-
-| Single-DB (All Competitors) | Separate PHI (TRACE) |
-|---------------------------|----------------------|
-| Cases table has client_name, client_dob, client_phone | Cases table has client_token (opaque UUID). PHI is in separate encrypted DB. |
-| Database backup contains PHI | Operational backup contains zero PHI |
-| Developer with DB access sees client data | Developer with DB access sees UUIDs |
-
-**Why this matters to the ICP:** When the bar association asks "where is client data stored and who has access?" the attorney can say "medical records are in Supabase, but client identities are encrypted in a completely separate database that only the attorney-facing decryption service can read." No competitor can make this claim.
+### Decision Drivers
+- **Per-unit economics.** Lower per-case cost at volume.
+- **Standardization.** Same quality across all cases, all staff.
+- **Staff augmentation, not replacement.** TRACE lets existing staff focus on higher-value work.
 
 ---
 
-# SECTION 5 — PRICING (FLAT, NO TIERS)
+# SECTION 6 — PRICING
 
-## Why Flat Pricing
+## Core Model: Per-Case
 
-TRACE does the same amount of work for every case — same SOL calculation, same NLP extraction, same OCR pipeline, same flag detection. Tiering based on features creates an artificial distinction where none exists. The only difference is the volume discount.
+| Plan | Per Case | What's Included | Annual (50 cases) |
+|------|---------|----------------|-------------------|
+| **TRACE** | $149 | All 57 features listed in Section 8 | $7,450 |
+| **TRACE Pro** | $289 | Everything + deterministic medical summaries, demand template builder, provider follow-up scheduler, priority OCR | $14,450 |
 
-## Pricing Table
-
-| Plan | Per Case | Features | Annual (48 cases) | First-Time Offer |
-|------|---------|----------|-------------------|-----------------|
-| **Entry** | $149 | All 54 features above (47 current + 7 chronology). Everything. No feature gates. | $7,152 | 3 free cases |
-| **Pro** | $289 | Everything in Entry + 3 Pro features: deterministic medical summaries, demand template builder, provider follow-up scheduler + priority OCR queue | $13,872 | 1 free at Pro |
+**First 3 cases free.** No setup fee. No per-fax fee. No per-page fee. No storage fee. No AI surcharge.
 
 ## Volume Discounts
 
-| Cases/Month | Discount | Entry Cost/Case | Pro Cost/Case |
-|-------------|----------|----------------|---------------|
+| Cases/Month | Discount | TRACE Cost/Case | TRACE Pro Cost/Case |
+|-------------|----------|----------------|---------------------|
 | 1-9 | None | $149 | $289 |
 | 10-19 | 20% | $119 | $231 |
 | 20-49 | 30% | $104 | $202 |
 | 50+ | Custom | Negotiated | Negotiated |
 
-## What's Included in BOTH Plans
+## Hybrid Option for Growth Firms (10+ cases/month)
 
-- Unlimited providers per case
-- Unlimited faxes per case (no per-fax fee)
-- Unlimited documents per case
-- All 15 clinical flag types
-- SOL auto-calculation with all 50 states
-- Lien tracking (all 6 types)
-- Chronology PDF + JSON export
-- Readiness board + analytics
-- SHA-256 document dedup
-- HIPAA-compliant cover sheets
-- Pre-signed URLs for document access
-- Audit log
-- Separate PHI store
+For firms with predictable volume who prefer a subscription model:
 
-## What Pro Adds ($140/case more)
+| Option | Monthly | Includes | Best For |
+|--------|---------|----------|----------|
+| **Growth 10** | $1,190/mo | 10 cases ($119/case), rollover unused | Firms with 8-12 cases/month |
+| **Growth 20** | $2,080/mo | 20 cases ($104/case), rollover unused | Firms with 15-25 cases/month |
+| **Growth 50** | Custom | Negotiated | Firms with 40+ cases/month |
 
-- **Deterministic medical summaries** — 2-3 page structured summary with source citations. No AI-generated text. Attorney-reviewed.
-- **Demand template builder** — Pre-filled template from chronology data. Attorney writes the narrative. No AI legal content.
-- **Provider follow-up scheduler** — Auto re-fax to unresponsive providers at attorney-set cadence.
-- **Priority OCR queue** — Guaranteed 2-hour processing for urgent cases.
+Additional cases beyond included quantity: billed at the discounted per-case rate.
+
+## Why Per-Case? Why Also Hybrid?
+
+Most PI firms have predictable volume. Per-case billing is attractive in slow months — the ICP loves it. But larger firms with consistent pipelines may prefer subscription predictability. Offering both options captures both buying behaviors without diluting the per-case differentiator. The per-case anchor also makes the subscription look like a deal — "10 cases for $1,190 instead of $1,490."
 
 ---
 
-# SECTION 6 — VALUE PROPOSITION (Reframed: Economics, Not Software)
+# SECTION 7 — POTENTIAL VALUE SOURCES
 
-## The Two Things the Customer Buys
+*Note: These are directional estimates based on industry data, not guaranteed outcomes. Individual results depend on case complexity, settlement strategy, and attorney diligence.*
 
-### Thing 1: Higher Settlement Throughput
+### Operational Labor Substitution
 
-A solo PI attorney currently processes 30-50 cases per year because medical records work is the bottleneck. TRACE removes the bottleneck.
+| Metric | Per Case | Annual (50 cases) |
+|--------|----------|-------------------|
+| Paralegal hours replaced (records work) | ~20 hours | ~1,000 hours |
+| Attorney hours saved (review + verification) | ~3.5 hours | ~175 hours |
+| **Potential labor cost savings** | **~$1,400-$1,900/case** | **~$70,000-$95,000/year** |
 
-| Metric | Before TRACE | After TRACE | Delta |
-|--------|-------------|------------|-------|
-| Medical records hours per case | 23 hours (paralegal + attorney) | Minutes (attorney review only) | -23 hrs |
-| Maximum cases per year (solo) | 30-50 (human-constrained) | 60-100 (acquisition-constrained) | +30-50 cases |
-| Average settlement per case | $100,000 | $100,000 | — |
-| Annual settlement throughput | $3M-$5M | $6M-$10M | +$3M-$5M |
-| Attorney fee (33% contingency) | $1M-$1.65M | $2M-$3.3M | **+$1M-$1.65M** |
-| TRACE cost per year (50 cases) | $0 | $7,450 | -$7,450 |
+### Documentation & Review Improvement
 
-**TRACE adds $1M-$1.65M in annual attorney fee capacity for $7,450 per year. That is a 13,423% return.**
+| Metric | Per Case | Annual (50 cases) |
+|--------|----------|-------------------|
+| Potential reduction in overlooked documentation gaps | 1-3 instances per case | 50-150 instances/year |
+| Potential reduction in overlooked pre-existing condition mentions | 1-2 instances per case | 50-100 instances/year |
+| Potential reduction in manual cross-reference errors | Multiple per case | Significant |
 
-### Thing 2: Lower Malpractice Risk
+### Settlement Preparation Enhancement
 
-Medical records are where malpractice happens. Missed SOL deadline. Wrong provider faxed. Pre-existing condition overlooked. Treatment gap exploited by carrier. Each of these costs $50K-$200K in settlement erosion and E&O deductibles.
+| Metric | Annual Impact (50 cases) |
+|--------|------------------------|
+| Potential improvement in settlement preparation through systematic documentation | Varies |
+| Potential reduction in demand package revision cycles | 1-3 cycles per case |
+| Potential improvement in carrier negotiation position | Case-dependent |
 
-| Risk | Annual Probability | Cost Per Occurrence | TRACE Prevention |
-|------|-------------------|-------------------|-----------------|
-| Missed SOL (5-10 per 100 cases) | 5-10% per case | $50K-$200K+ | 50-state auto-calc, urgency tiers → near 0 |
-| Wrong provider faxed (10-15%) | 10-15% per case | $50K/violation (HIPAA) | Provider confirmation gate → 0 |
-| Pre-existing condition missed (30-50%) | 30-50% per case | $20K-$60K | Flag #8 auto-detects "prior," "history of," "pre-existing" |
-| Treatment gap exploited (40-60%) | 40-60% per case | $15K-$25K | Flag #2 auto-detects 30+ day undocumented gaps |
-| Missed lien (20-30%) | 20-30% per case | $2.5K-$10K | 6-type lien tracking, unverified dashboard |
+### Risk Mitigation
 
-**For a 50-case practice, TRACE eliminates $125K-$500K in aggregate annual malpractice and settlement erosion risk.**
-
-## The Real Value Proposition
-
-> TRACE doesn't organize medical records. TRACE doubles case throughput and eliminates the errors that destroy settlements. For $149 per case.
->
-> The OCR, the chronology, the clinical flags — that's the plumbing. The pipe delivers more money with less risk.
->
-> Your paralegal can't do that. Your case management software can't do that. No competitor can do that.
-
-## The Restated Value Props by Persona
-
-### For the Solo Attorney (30 cases/year)
-
-> "You're doing 690 hours of records work per year. That's 17 weeks of full-time work. TRACE gives you those 17 weeks back. You can either spend them with your family or use them to take 20 more cases. If you take 20 more cases at your current settlement average, that's $660,000 in additional fees. TRACE costs $7,450/year for all 50 cases. The math is simple."
-
-### For the Small Firm (120 cases/year across 3 attorneys)
-
-> "Your paralegal costs $54,000/year in salary and still misses 40-60% of the clinical issues carriers exploit. TRACE does better work than your paralegal for $17,880/year. You save $36,000 and prevent settlement losses that your paralegal can't catch."
-
-### For the Growing Firm (20+ cases/month)
-
-> "Every new paralegal you hire costs $54,000/year plus benefits, training, and turnover risk. Every 20 cases you add with TRACE costs $17,880. You're growing headcount-free. Your margins improve with every case you add."
-
-## The Economic Category
-
-TRACE competes in three categories simultaneously:
-
-| Category | What TRACE Displaces | Annual Value |
-|----------|---------------------|-------------|
-| **Labor substitution** | Paralegal salary ($54K) + attorney time ($82K at 50 cases) | $136,000 |
-| **Throughput expansion** | 20-30 additional cases/year the attorney couldn't handle before | $660K-$990K in additional fees |
-| **Risk elimination** | Settlement erosion from missed flags + SOL malpractice + HIPAA violations | $125K-$500K |
-
-**Total economic value per 50-case solo practice: $921K-$1.63M per year.**
-
-**TRACE cost: $7,450 per year for 50 cases at $149/case.**
-
-**This is not software. This is a business model upgrade for a law firm.**
+| Risk Type | Potential Impact |
+|----------|-----------------|
+| SOL deadline accuracy | Systematic calculation vs. manual entry |
+| Provider fax verification | Confirmation gate vs. manual lookup |
+| HIPAA compliance documentation | Automated audit trail vs. manual logging |
+| Lien tracking completeness | 6-type structured tracking vs. ad hoc notes |
 
 ---
 
-# SECTION 7 — THE ECONOMIC MODEL (ROI)
+# SECTION 8 — ALL 57 FEATURES
 
-| What TRACE Saves | Per Case |
-|-----------------|----------|
-| Paralegal hours (20 hrs × $28) | $560 |
-| Attorney hours (3.65 hrs × $300) | $1,095 |
-| Settlement erosion from missed flags | $15,000-$25,000 |
-| HIPAA breach avoidance (wrong fax) | $5,000-$7,500 |
-| Missed lien clawback | $500-$3,000 |
-| **Total saved per case** | **~$25,000** |
-| **TRACE Entry cost per case** | **$149** |
-| **Net savings per case** | **$24,851** |
-| **ROI** | **16,678%** |
+### A. INTAKE CONVERSION (4 features)
+1. **Intake-to-Case Conversion** — INTAKE prospect → TRACE case, one click
+2. **SOL Auto-Calculation** — 50-state table, 4 urgency tiers, statute reference
+3. **PHI Encryption** — AES-256-GCM, separate PHI database
+4. **Retainer Template Upload** — Populated with client info, sent for e-sign
+
+### B. PROVIDER MANAGEMENT (6 features)
+5. **NLP Provider Extraction** — OpenMed + regex fallback from intake narrative
+6. **NPI Registry Lookup** — CMS API enriches each provider candidate
+7. **Provider Confirmation** — Attorney confirms each. NPI match is candidate, not authorization
+8. **Fax Number Management** — Edit, add, verify
+9. **Provider List Lock** — Checkpoint 2. Read-only after confirm
+10. **Confidence Taxonomy** — CONFIRMED, NEEDS_CLIENT_CONFIRMATION, NEEDS_STAFF_REVIEW, DO_NOT_REQUEST
+
+### C. RECORD RETRIEVAL (5 features)
+11. **Outbound Fax** — Documo API, HIPAA-compliant cover sheets
+12. **Cover Sheet Generator** — Patient info REDACTED on cover
+13. **Fax Status Tracking** — Documo webhook, RecordRequest tracking
+14. **Inbound Email Reception** — Resend webhook → case-matched → stored → OCR
+15. **Inbound Fax Reception** — Documo callback → matched → PDF → stored → OCR
+
+### D. DOCUMENT PROCESSING (5 features)
+16. **Attorney Upload** — Drag-and-drop, SHA-256 dedup
+17. **Client Upload** — Public link /link/{token}
+18. **Portal Link Ingestion** — External URL → fetch → store
+19. **Mistral OCR** — PDF, JPEG, TIFF, handwriting
+20. **Document Provenance** — Source tracking, SHA-256 hash
+
+### E. CHRONOLOGY BUILDING (7 features)
+21-27. Clinical entity extraction, timeline builder, procedure/diagnosis/medication tracking, functional impact, cost summary
+
+### F. CLINICAL FLAGS (15 types — TRACE ONLY)
+28-42. GAP_IN_TREATMENT, SUDDEN_TREATMENT_STOP, FOLLOW_UP_NOT_FOUND, CLINICIAN_CREDIBILITY_LANGUAGE, NON_COMPLIANT_LANGUAGE, NEW_PROVIDER_NO_REFERRAL, MMI_NOT_DOCUMENTED, PRE_EXISTING_CONDITION_MENTIONED, IMAGING_INCONSISTENCY, MEDICATION_ESCALATION, SURGERY_RECOMMENDED_NOT_DONE, WORK_RESTRICTIONS_DOCUMENTED, FUNCTIONAL_IMPROVEMENT, DISCHARGE_SUMMARY_MISSING, BILLING_CODE_MISMATCH
+
+### G. ATTORNEY QA (5 features)
+43-47. Chronology viewer, flag annotation (versioned), readiness board, demand-ready gate, export (PDF + JSON)
+
+### H. LIEN TRACKING (3 features)
+48-50. 6 types, 4 statuses, amount tracking
+
+### I. COMPLIANCE & SECURITY (4 features)
+51-54. Separate PHI store, audit log (append-only), pre-signed URLs, firm isolation
+
+### J. PRO FEATURES (Phase 2 — 3 features)
+55. **Deterministic Medical Summaries** — Structured, source-cited, zero AI text
+56. **Demand Template Builder** — Pre-filled from chronology, attorney writes narrative
+57. **Provider Follow-Up Scheduler** — Auto re-fax, escalation alerts
 
 ---
 
-# SECTION 8 — COMPETITOR LANDSCAPE
+# SECTION 9 — COMPETITOR LANDSCAPE
 
-[Parts 8.1 through 8.5 summarize the research from earlier sections — the master feature matrix, Frankenstein stack analysis, and feature coverage scorecard remain as originally published and are referenced here.]
+## Who's Actually in the Market
 
-*See original Sections A-L of the Master Feature Matrix for the full 27-feature comparison across 18 competitors.*
+17 competitors across 5 segments. Full feature matrix available in the extended data. Summary:
+
+| Segment | Key Players | TRACE vs. Them |
+|---------|-----------|---------------|
+| Record Retrieval Services | ChartSwap, Ontellus, MRO | They're human-powered services. TRACE is automated software. |
+| Practice Management | Clio, CloudLex, SmartVault | They don't do what TRACE does. Clio has zero medical chronology. |
+| AI Chronology | Eve, TAVRN, NexLaw, ProvaLens, LawPro | All AI-generated. None provide source citations or clinical flags. |
+| Demand Letters | Inquery, Law Practice AI, Dodon | AI-written. Hallucination risk. No evidence integration. |
+| HIE/EHR | CommonWell, Carequality, Epic | Infrastructure layer. TRACE could integrate for Phase 3. |
+
+## The Real Competitive Comparison: Paralegal vs. TRACE
+
+| | Paralegal | TRACE |
+|---|---|---|
+| Annual cost | $59,000-$69,000 (salary + benefits + overhead) | $7,450 (50 cases) |
+| Error rate | 40-60% of clinical issues missed | Near 0% (deterministic) |
+| Working hours | 40/week | 24/7 |
+| Scalability | Hire another person | Add cases |
+| Consistency | Varies by employee | Deterministic |
+| Turnover risk | Present | None |
+| Onboarding | 3 months | Instant |
 
 ---
 
-# SECTION 9 — THE FRANKENSTEIN STACK COST
-
-To replicate TRACE by buying separate products from competitors:
-
-| Components | Products | Monthly Cost |
-|-----------|----------|-------------|
-| Case Management | Clio EasyStart | $49 |
-| Records Retrieval | ChartSwap (4 reqs × $37 avg) | $148 |
-| Chronology | TAVRN AI | $99 |
-| Medical Summaries | Eve Legal (Solo) | $500 |
-| Demand Letters | Inquery | $99 |
-| Client Portal | SmartVault | $40 |
-| **TOTAL SOLO COST** | | **$935/mo** |
-| **Features Covered** | | **11 of 27 (41%)** |
-
-**Features that CANNOT be bought at any price:** Clinical flags, SOL calculator, provider confirmation gate, lien tracking, separate PHI store, audit log, fax with cover sheets, inbound email/fax reception, SHA-256 dedup, deterministic chronology, flag annotation — **16 features total.**
-
----
-
-# SECTION 10 — ALL COMPETITOR PRICING (Quick Reference)
+# SECTION 10 — COMPETITOR PRICING REFERENCE
 
 | Competitor | Model | Entry | Mid | High |
 |-----------|-------|-------|-----|------|
 | **TRACE** | **Per-Case** | **$149** | — | **$289** |
+| **TRACE Growth** | **Hybrid** | **$1,190/mo (10 cases)** | **$2,080/mo (20 cases)** | **Custom** |
 | TAVRN AI | Monthly | $99/mo | $299/mo | Custom |
 | Eve.Legal | Monthly | $500/mo | $1,000/mo | $2,000+ |
 | CloudLex | Per-User | $65/mo | $99/mo | $149/mo |
@@ -412,42 +418,110 @@ To replicate TRACE by buying separate products from competitors:
 | Dodon.ai | Monthly | $79/mo | $129/mo | $199/mo |
 | ProPlaintiff | Monthly | $149/mo | $199/mo | $299/mo |
 | ChronicleLegal | Monthly | $99/mo | $199/mo | $299/mo |
-| SmartVault | Per-User | $40/mo | $60/mo | $80/mo |
 | ChartSwap | Per-Request | $25/req | $45/req | $65/req |
 | Ontellus | Per-Request | $30/req | $55/req | $80/req |
-| RecordsOnTime | Per-Request | $30/req | $45/req | $55/req |
-| YoCierge | Monthly | $250/mo | $350/mo | $500/mo |
 
 ---
 
-# SECTION 12 — SALES PITCH (The Economics Conversation)
+# SECTION 11 — THE FRANKENSTEIN STACK
 
-### Don't Sell Software. Sell Throughput and Safety.
+To replicate TRACE by piecing together competitors:
 
-**The opening line:**
+| Need | Product | Monthly |
+|------|---------|---------|
+| Case Management | Clio EasyStart | $49 |
+| Records Retrieval | ChartSwap (4 reqs × $37) | $148 |
+| Chronology | TAVRN AI | $99 |
+| Client Portal | SmartVault | $40 |
+| **Monthly Total** | | **$336/mo** |
+| **Features Covered** | | **11 of 57 (19%)** |
 
-> "Most PI attorneys max out at 30-50 cases a year because medical records work eats their time. TRACE removes that bottleneck. You can handle twice as many cases with zero additional staff — and eliminate the errors that cost you settlements."
-
-**The 3-Number Close:**
-
-1. **"$1,655."** That's what you spend in human labor per case on records work. 23 hours. Paralegal or your own time.
-2. **"40-60%."** That's how many clinical issues your paralegal misses. Treatment gaps. Pre-existing conditions. Credibility language. Each miss costs $15K-$60K in settlement value.
-3. **"$149."** That's what TRACE costs per case. With zero human labor. And zero misses.
-
-> "You can handle 50 cases this year at $1,655 each in records labor. Or you can handle 80 at $149 each, and keep the $1,655 per case in your pocket for the first 50. Even if you don't add a single new case, you're saving $75,000 in labor costs. If you add 30, you're earning an additional $990,000 in fees."
->
-> "That's not software. That's a business model change. For $149 per case."
-
-### Objection Handler: "I already have a paralegal."
-
-> "Your paralegal is great. But can they find every treatment gap across 500 pages? Every pre-existing condition mention buried in a specialist note? Every instance of credibility language that a carrier will quote verbatim to lowball you? TRACE catches 40-60% more than a human reviewer. Not because TRACE is smarter — because humans get tired and miss things. Your paralegal reviews 3 cases at a time. TRACE reviews all of them simultaneously."
->
-> "Keep your paralegal for client communication and court filings. Let TRACE do the records work. Your paralegal will thank you, and your settlements will go up."
-
-### Objection Handler: "I don't do enough volume."
-
-> "If you do 20 cases a year, you're spending $33,100 in records labor. TRACE is $2,980 for all 20 cases. You save $30,000. And if one of those missed issues costs you a $20,000 settlement reduction — which happens 40-60% of the time — TRACE pays for itself 7 times over. At any volume, the math works."
+**Features you still cannot buy at any price:** Clinical flags. Provider confirmation gate. SOL auto-calculation. Lien tracking. Separate PHI store. Deterministic chronology. Attorney annotation workflow. Inbound email/fax. — **46 features unavailable.**
 
 ---
 
-*This is the definitive reference document for TRACE. All agents, engineers, and stakeholders should reference this document for competitive analysis, pricing, positioning, ICP understanding, feature scope, and sales strategy. Updated July 25, 2026.*
+# SECTION 12 — THE REAL MOAT
+
+People often think the moat is OCR, or AI, or medical NLP. It isn't.
+
+The moat is the combination:
+
+- Deterministic workflow (not AI)
+- Structured chronology with source citations
+- 15 clinical flag types with attorney annotation
+- Attorney gating at 4 checkpoints
+- Provider retrieval with confirmation gate
+- PHI separation at the architectural level
+- Settlement integration (SETTLE)
+
+None of those individually are hard to replicate.
+
+All of them together are extremely difficult to replicate cohesively.
+
+That systems integration is where defensibility lies. A competitor cannot clone TRACE by building one feature. They must rebuild the entire workflow architecture — the gating, the flag engine, the provider confirmation, the PHI separation, the INTAKE integration, the SETTLE feed. Each layer makes the stack harder to catch.
+
+---
+
+# SECTION 13 — EXTERNAL MESSAGING (5 Pillars)
+
+Show 57 features internally. Show 5 to customers:
+
+| Pillar | What They Remember | Why They Buy |
+|--------|-------------------|-------------|
+| **Catches Treatment Gaps** | "It finds things my paralegal misses." | Settlement protection |
+| **Builds Chronology** | "I don't spend weekends organizing records." | Time recovery |
+| **Manages Providers** | "It faxes everything and tracks responses." | Retrieval automation |
+| **Tracks Liens** | "No more lien surprises at settlement." | Financial protection |
+| **Prevents Malpractice Mistakes** | "I sleep better." | Peace of mind |
+
+Everything else in the 57 features supports these five pillars.
+
+---
+
+# SECTION 14 — SALES STORY (The Right Order)
+
+Don't open with pipeline. Don't open with lifecycle. Don't open with features.
+
+1. **Here's what you're losing today.** (Section 1 — the gap they don't see)
+2. **Here's why it keeps happening.** (Volume, fatigue, context switching, no cross-referencing)
+3. **Here's how TRACE prevents it.** (Gated workflow, deterministic flags, structured chronology)
+4. **Here's how the workflow works.** (7 stages, 4 checkpoints)
+5. **Here's the features.** (57, but only mention the 5 pillars)
+
+The sales conversation should never be about features. It should be about the paralegal comparison and the settlement protection.
+
+---
+
+# SECTION 15 — STRATEGIC POSITIONING
+
+## The New Category
+
+Don't market TRACE as "AI medical chronology software." There are 10 companies in that bucket already.
+
+Market it as **"The operating system for preparing personal injury cases — from signed retainer to demand-ready evidence."**
+
+That category doesn't exist yet. Competitors are compared against other AI chronologies. TRACE is compared against hiring people. That is a much better comparison.
+
+## The Platform Play
+
+When INTAKE, TRACE, and SETTLE are sold together, position as **"The Personal Injury Operating System."**
+
+```
+Acquire → Prepare → Maximize
+INTAKE     TRACE      SETTLE
+```
+
+Now customers don't compare individual products. They compare entire firm operating models.
+
+## Positioning by Competitor Type
+
+| If They Compare To... | TRACE Says... |
+|----------------------|--------------|
+| AI Chronology (TAVRN, Eve) | "We don't generate AI narratives. We build auditable evidence." |
+| Practice Management (Clio, CloudLex) | "We're the medical records layer they don't provide." |
+| Record Retrieval Services (ChartSwap) | "We're software, not a per-request service. Unlimited faxes included." |
+| Hiring a Paralegal | "$149/case vs. $54,000/year. Deterministic quality vs. human variability." |
+
+---
+
+*This is the definitive reference document for TRACE. All agents, engineers, and stakeholders should reference this document for competitive analysis, pricing, positioning, ICP understanding, feature scope, value proposition, and sales strategy. Version 5.0 incorporates a full market-fit review and restructures the document around economics rather than features.*
