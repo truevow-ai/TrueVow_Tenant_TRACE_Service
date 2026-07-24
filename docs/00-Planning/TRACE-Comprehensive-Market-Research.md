@@ -119,6 +119,14 @@ PENDING_SIGNATURE → INITIALIZATION → RETRIEVAL → PROCESSING → CHRONOLOGY
 53. **Pre-signed URLs** — Document access via 15-minute expiry tokens. No public URLs. No direct storage access.
 54. **Firm Isolation** — Every query scoped to firm_id. JWT validates firm. Supabase RLS third layer.
 
+### J. PRO FEATURES (coming in Phase 2 — 3 features)
+
+55. **Deterministic Medical Summaries** — Structured 2-3 page summary. Zero AI-generated text. All data extracted via rule-based NLP from records. Source page citations for every entry. Sections: demographics, providers (with page counts), diagnoses (ranked by frequency), procedures (chronological), medications (with dosage/duration), functional impact (from SOAP notes), treatment gaps (from flag engine), cost summary. Attorney reviews and signs off. No hallucination risk.
+
+56. **Demand Template Builder** — Pre-fills a structured demand letter template from chronology data. Client demographics, provider list, diagnosis summary, procedure timeline, medication history, functional impact, cost summary, lien summary. Attorney writes the narrative section. Attorney reviews every pre-filled field. No AI-generated legal content. Outputs formatted PDF/Word document ready for attorney signature.
+
+57. **Provider Follow-Up Scheduler** — Auto re-faxes unresponsive providers at attorney-set cadence (e.g., every 14 days). Tracks follow-up count and escalation. Alerts attorney at day 25 for providers still unresponsive (portal notification). Records non-response pattern for future cases with same provider. No competitor has automated this — service companies (ChartSwap, Ontellus) do it manually.
+
 ---
 
 # SECTION 3 — ICP PAIN POINTS & HOW TRACE SOLVES EACH
@@ -204,8 +212,8 @@ TRACE does the same amount of work for every case — same SOL calculation, same
 
 | Plan | Per Case | Features | Annual (48 cases) | First-Time Offer |
 |------|---------|----------|-------------------|-----------------|
-| **Entry** | $149 | All 54 features above. Everything. No feature gates. | $7,152 | 3 free cases |
-| **Pro** | $289 | Everything in Entry + deterministic medical summaries + demand template builder + provider follow-up scheduler + priority OCR queue | $13,872 | 3 free cases at Entry level, 1 free at Pro |
+| **Entry** | $149 | All 54 features above (47 current + 7 chronology). Everything. No feature gates. | $7,152 | 3 free cases |
+| **Pro** | $289 | Everything in Entry + 3 Pro features: deterministic medical summaries, demand template builder, provider follow-up scheduler + priority OCR queue | $13,872 | 1 free at Pro |
 
 ## Volume Discounts
 
