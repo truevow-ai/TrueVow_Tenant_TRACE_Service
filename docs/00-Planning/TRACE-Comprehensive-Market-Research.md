@@ -260,7 +260,7 @@ Male, ~52 years old. 15-25 years practicing. 0-1 staff. $150K-$500K revenue. 30-
 |-------------|----------|----------------|---------------------|
 | 1-9 | None | $149 | $289 |
 | 10-19 | 20% | $119 | $231 |
-| 20-49 | 30% | $104 | $202 |
+| 20-49 | 30%+ | $99 | $199 |
 | 50+ | Custom | Negotiated | Negotiated |
 
 ## Hybrid Option for Growth Firms (10+ cases/month)
@@ -270,7 +270,7 @@ For firms with predictable volume who prefer a subscription model:
 | Option | Monthly | Includes | Best For |
 |--------|---------|----------|----------|
 | **Growth 10** | $1,190/mo | 10 cases ($119/case), rollover unused | Firms with 8-12 cases/month |
-| **Growth 20** | $2,080/mo | 20 cases ($104/case), rollover unused | Firms with 15-25 cases/month |
+| **Growth 20** | $1,980/mo | 20 cases ($99/case), rollover unused | Firms with 15-25 cases/month |
 | **Growth 50** | Custom | Negotiated | Firms with 40+ cases/month |
 
 Additional cases beyond included quantity: billed at the discounted per-case rate.
@@ -405,7 +405,7 @@ Most PI firms have predictable volume. Per-case billing is attractive in slow mo
 | Competitor | Model | Entry | Mid | High |
 |-----------|-------|-------|-----|------|
 | **TRACE** | **Per-Case** | **$149** | — | **$289** |
-| **TRACE Growth** | **Hybrid** | **$1,190/mo (10 cases)** | **$2,080/mo (20 cases)** | **Custom** |
+| **TRACE Growth** | **Hybrid** | **$1,190/mo (10 cases)** | **$1,980/mo (20 cases)** | **Custom** |
 | TAVRN AI | Monthly | $99/mo | $299/mo | Custom |
 | Eve.Legal | Monthly | $500/mo | $1,000/mo | $2,000+ |
 | CloudLex | Per-User | $65/mo | $99/mo | $149/mo |
