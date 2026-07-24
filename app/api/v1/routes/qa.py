@@ -286,8 +286,6 @@ async def case_export(
     from fastapi.responses import Response
 
     exporter = ChronologyExporter()
-    provider_results = await db.execute(select(Provider).where(Provider.case_id == case_id))
-    providers = provider_results.scalars().all()
 
     if format == "json":
         data = exporter.export_json(

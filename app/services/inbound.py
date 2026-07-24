@@ -12,7 +12,7 @@ import hmac
 import re
 import uuid
 from base64 import b64decode
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import httpx
 
@@ -130,9 +130,8 @@ async def process_inbound_email(
     subject = (payload.get("subject") or "")
     text_body = (payload.get("text") or "")
     from_addr = (payload.get("from") or "")
-    all_text = f"{subject}\n{text_body}"
 
-    # Case matching
+    # Case matching — search subject, body text, and from address for case ID
     case_id = (
         _extract_case_id_from_text(subject)
         or _extract_case_id_from_text(text_body)
