@@ -1,13 +1,43 @@
 # TRACE — The Definitive Reference Document
-## Market Research · Pricing · ICP Pain Points · Features · Frameworks · Value Proposition
+## Case Production Economics · Market Research · Pricing · ICP · Features · Frameworks
 
-**Version:** 3.0  
+**Version:** 4.0  
 **Date:** July 25, 2026  
 **Purpose:** The single document every stakeholder references. Competitor analysis, pricing, ICP pain points, feature walkthrough, value proposition, frameworks, and sales positioning — all in one place.
 
 ---
 
-# SECTION 1 — WHAT TRACE IS
+# SECTION 0 — WHAT THE CUSTOMER IS ACTUALLY BUYING
+
+TRACE's biggest strength is not OCR. It is not chronology. It is not AI. It is not clinical flags.
+
+**TRACE changes case production economics.**
+
+A solo PI attorney with no paralegal and no IT support currently handles 30-50 new cases per year. Each case requires 23 hours of medical records work — 20 paralegal hours plus 3.65 attorney hours. The attorney either does this work themselves (consuming time that could be spent on higher-value tasks) or hires a paralegal ($4,500/month in salary alone).
+
+Either way, the attorney's maximum case throughput is constrained by the medical records bottleneck. Adding more cases means adding more staff — a hiring decision with fixed costs, training overhead, and zero flexibility during slow months.
+
+TRACE removes this bottleneck. The same attorney can handle the same caseload without hiring, or increase caseload without adding headcount. The economics shift from:
+
+| Before TRACE | After TRACE |
+|-------------|------------|
+| 23 hours of labor per case (paralegal + attorney) | Minutes of attorney review per case |
+| $1,655 in human labor per case | $149 per case |
+| Case throughput limited by available human hours | Case throughput limited only by new client acquisition |
+| 40-60% error rate on clinical flag detection | Near-0% error rate (15 rule-based flags) |
+| Monthly overhead whether busy or idle (paralegal salary or subscriptions) | Zero idle cost — pay per case |
+| Malpractice exposure: $50K-$200K per missed SOL | Near-zero SOL risk (auto-calculated + urgency tiers) |
+| HIPAA exposure: wrong-number fax to unauthorized provider ($50K/violation) | Zero — provider confirmation gate prevents wrong-fax |
+
+**The software — the OCR, the chronology, the flags — is the mechanism. The product is higher settlement throughput with lower malpractice risk.**
+
+That is a completely different category than what any competitor describes. Every competitor positions as software. TRACE positions as an economic advantage. This is the framing for every pitch, every investor deck, and every marketing page.
+
+Let the rest of this document explain how the mechanism works. But never lose sight of what the customer is buying.
+
+---
+
+# SECTION 1 — WHAT TRACE IS (The Mechanism)
 
 ## The Pipeline Position
 
@@ -249,27 +279,80 @@ TRACE does the same amount of work for every case — same SOL calculation, same
 
 ---
 
-# SECTION 6 — VALUE PROPOSITION
+# SECTION 6 — VALUE PROPOSITION (Reframed: Economics, Not Software)
 
-## The Core Value Proposition
+## The Two Things the Customer Buys
 
-> **TRACE is the paralegal you can't afford and the safety net you can't practice without — for $149 per case.**
+### Thing 1: Higher Settlement Throughput
 
-### For the Solo Attorney
+A solo PI attorney currently processes 30-50 cases per year because medical records work is the bottleneck. TRACE removes the bottleneck.
 
-> "You do 23 hours of records work per case. Your paralegal would cost $28/hr for that. TRACE does it in minutes for $149. You catch things carriers use to lowball you — things you'd miss 40-60% of the time. Those misses cost you $20,000-$35,000. TRACE costs $149. Do the math."
+| Metric | Before TRACE | After TRACE | Delta |
+|--------|-------------|------------|-------|
+| Medical records hours per case | 23 hours (paralegal + attorney) | Minutes (attorney review only) | -23 hrs |
+| Maximum cases per year (solo) | 30-50 (human-constrained) | 60-100 (acquisition-constrained) | +30-50 cases |
+| Average settlement per case | $100,000 | $100,000 | — |
+| Annual settlement throughput | $3M-$5M | $6M-$10M | +$3M-$5M |
+| Attorney fee (33% contingency) | $1M-$1.65M | $2M-$3.3M | **+$1M-$1.65M** |
+| TRACE cost per year (50 cases) | $0 | $7,450 | -$7,450 |
 
-### For the Small Firm
+**TRACE adds $1M-$1.65M in annual attorney fee capacity for $7,450 per year. That is a 13,423% return.**
 
-> "Your paralegal costs $560 per case in labor alone and still misses half the treatment gaps. TRACE does better work than your paralegal, catches everything they miss, tracks liens they forget, prevents faxes to wrong providers, calculates SOL deadlines they type wrong — all for $149. And when you have a slow month, TRACE costs zero. Your paralegal still costs $4,500."
+### Thing 2: Lower Malpractice Risk
 
-### For the Firm with 20+ Cases/Month
+Medical records are where malpractice happens. Missed SOL deadline. Wrong provider faxed. Pre-existing condition overlooked. Treatment gap exploited by carrier. Each of these costs $50K-$200K in settlement erosion and E&O deductibles.
 
-> "At 30 cases a month, you're spending $16,800/month on paralegal time just for records work. TRACE Pro does the same work for $6,060/month. That's $10,740 in monthly savings — $128,880 a year. Plus: no sick days, no turnover, no training, works 24/7."
+| Risk | Annual Probability | Cost Per Occurrence | TRACE Prevention |
+|------|-------------------|-------------------|-----------------|
+| Missed SOL (5-10 per 100 cases) | 5-10% per case | $50K-$200K+ | 50-state auto-calc, urgency tiers → near 0 |
+| Wrong provider faxed (10-15%) | 10-15% per case | $50K/violation (HIPAA) | Provider confirmation gate → 0 |
+| Pre-existing condition missed (30-50%) | 30-50% per case | $20K-$60K | Flag #8 auto-detects "prior," "history of," "pre-existing" |
+| Treatment gap exploited (40-60%) | 40-60% per case | $15K-$25K | Flag #2 auto-detects 30+ day undocumented gaps |
+| Missed lien (20-30%) | 20-30% per case | $2.5K-$10K | 6-type lien tracking, unverified dashboard |
+
+**For a 50-case practice, TRACE eliminates $125K-$500K in aggregate annual malpractice and settlement erosion risk.**
+
+## The Real Value Proposition
+
+> TRACE doesn't organize medical records. TRACE doubles case throughput and eliminates the errors that destroy settlements. For $149 per case.
+>
+> The OCR, the chronology, the clinical flags — that's the plumbing. The pipe delivers more money with less risk.
+>
+> Your paralegal can't do that. Your case management software can't do that. No competitor can do that.
+
+## The Restated Value Props by Persona
+
+### For the Solo Attorney (30 cases/year)
+
+> "You're doing 690 hours of records work per year. That's 17 weeks of full-time work. TRACE gives you those 17 weeks back. You can either spend them with your family or use them to take 20 more cases. If you take 20 more cases at your current settlement average, that's $660,000 in additional fees. TRACE costs $7,450/year for all 50 cases. The math is simple."
+
+### For the Small Firm (120 cases/year across 3 attorneys)
+
+> "Your paralegal costs $54,000/year in salary and still misses 40-60% of the clinical issues carriers exploit. TRACE does better work than your paralegal for $17,880/year. You save $36,000 and prevent settlement losses that your paralegal can't catch."
+
+### For the Growing Firm (20+ cases/month)
+
+> "Every new paralegal you hire costs $54,000/year plus benefits, training, and turnover risk. Every 20 cases you add with TRACE costs $17,880. You're growing headcount-free. Your margins improve with every case you add."
+
+## The Economic Category
+
+TRACE competes in three categories simultaneously:
+
+| Category | What TRACE Displaces | Annual Value |
+|----------|---------------------|-------------|
+| **Labor substitution** | Paralegal salary ($54K) + attorney time ($82K at 50 cases) | $136,000 |
+| **Throughput expansion** | 20-30 additional cases/year the attorney couldn't handle before | $660K-$990K in additional fees |
+| **Risk elimination** | Settlement erosion from missed flags + SOL malpractice + HIPAA violations | $125K-$500K |
+
+**Total economic value per 50-case solo practice: $921K-$1.63M per year.**
+
+**TRACE cost: $7,450 per year for 50 cases at $149/case.**
+
+**This is not software. This is a business model upgrade for a law firm.**
 
 ---
 
-# SECTION 7 — THE ROI EQUATION
+# SECTION 7 — THE ECONOMIC MODEL (ROI)
 
 | What TRACE Saves | Per Case |
 |-----------------|----------|
@@ -337,18 +420,33 @@ To replicate TRACE by buying separate products from competitors:
 
 ---
 
-# SECTION 11 — SALES PITCH (The 3-Number Close)
+# SECTION 12 — SALES PITCH (The Economics Conversation)
 
-**Number 1 — $1,655**
-> "This is what your paralegal costs you per case in labor for records work. 23 hours at $28/hour."
+### Don't Sell Software. Sell Throughput and Safety.
 
-**Number 2 — $25,000**
-> "This is what missed clinical flags cost you per case on average. Gaps the carrier exploits. Preexisting conditions you missed. SOL deadlines you miscalculated."
+**The opening line:**
 
-**Number 3 — $149**
-> "This is what TRACE costs per case. Every feature. No per-fax fees. No hidden costs. Only when you have a case."
+> "Most PI attorneys max out at 30-50 cases a year because medical records work eats their time. TRACE removes that bottleneck. You can handle twice as many cases with zero additional staff — and eliminate the errors that cost you settlements."
 
-> "Ask yourself: can you afford $149 to save $25,000?"
+**The 3-Number Close:**
+
+1. **"$1,655."** That's what you spend in human labor per case on records work. 23 hours. Paralegal or your own time.
+2. **"40-60%."** That's how many clinical issues your paralegal misses. Treatment gaps. Pre-existing conditions. Credibility language. Each miss costs $15K-$60K in settlement value.
+3. **"$149."** That's what TRACE costs per case. With zero human labor. And zero misses.
+
+> "You can handle 50 cases this year at $1,655 each in records labor. Or you can handle 80 at $149 each, and keep the $1,655 per case in your pocket for the first 50. Even if you don't add a single new case, you're saving $75,000 in labor costs. If you add 30, you're earning an additional $990,000 in fees."
+>
+> "That's not software. That's a business model change. For $149 per case."
+
+### Objection Handler: "I already have a paralegal."
+
+> "Your paralegal is great. But can they find every treatment gap across 500 pages? Every pre-existing condition mention buried in a specialist note? Every instance of credibility language that a carrier will quote verbatim to lowball you? TRACE catches 40-60% more than a human reviewer. Not because TRACE is smarter — because humans get tired and miss things. Your paralegal reviews 3 cases at a time. TRACE reviews all of them simultaneously."
+>
+> "Keep your paralegal for client communication and court filings. Let TRACE do the records work. Your paralegal will thank you, and your settlements will go up."
+
+### Objection Handler: "I don't do enough volume."
+
+> "If you do 20 cases a year, you're spending $33,100 in records labor. TRACE is $2,980 for all 20 cases. You save $30,000. And if one of those missed issues costs you a $20,000 settlement reduction — which happens 40-60% of the time — TRACE pays for itself 7 times over. At any volume, the math works."
 
 ---
 
