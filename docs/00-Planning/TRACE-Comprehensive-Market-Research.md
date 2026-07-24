@@ -290,9 +290,33 @@ All 57 features. No feature gating:
 - Provider follow-up scheduler (Phase 2)
 - Separate PHI store + audit log + pre-signed URLs
 
-## First Case Free
+## First 11 Cases Free (or 90 Days — Whichever Expires First)
 
-Every new firm gets their first case free — unrestricted, all features — to experience TRACE on a real case before paying.
+Same offer structure as INTAKE. Every new firm gets up to 11 cases free for their first 90 days — whichever limit they hit first. This gives them enough volume to experience TRACE on multiple real cases before committing to a paid plan.
+
+| Scenario | What Happens |
+|----------|-------------|
+| Firm does 4 cases in 90 days | 4 cases free. Day 91: paid plan begins (Solo, Growth, or Team). |
+| Firm does 14 cases in 45 days | First 11 free. Cases 12-14 billed at $199 each. Day 46: paid plan begins. |
+| Firm does 0 cases in 90 days | No charge. Day 91: firm chooses plan or account goes dormant. |
+
+After the free period, the firm selects Solo (per-case), Growth ($1,199/mo for 11 cases), or Team ($1,999/mo for 21 cases).
+
+## Monthly Rollover Rules
+
+| Rule | Detail |
+|------|--------|
+| **Rollover window** | Unused cases carry to the next month only (1-month carry-forward) |
+| **Rollover cap** | One month's allocation maximum. Growth can carry up to 11 unused. Team up to 21. |
+| **Usage order** | New month's allocation used first, then rollover cases from prior month |
+| **Expiration** | Cases older than 1 month expire. No indefinite banking. |
+
+**Example (Growth plan, $1,199/mo, 11 cases):**
+- January: 8 cases used. 3 roll to February.
+- February: 11 new + 3 rollover = 14 available. 12 used. 2 roll to March.
+- March: 11 new + 2 rollover = 13 available. 10 used. 3 roll to April.
+
+**Why 1-month rollover?** Prevents the "buy one month of Growth on January 1, use 11 cases across the entire year" loophole. The subscription is priced assuming regular usage. One-month carry-forward is generous enough for volume fluctuation without creating a pricing arbitrage.
 
 ## The Psychology
 
