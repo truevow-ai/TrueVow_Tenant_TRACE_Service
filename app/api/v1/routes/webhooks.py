@@ -124,17 +124,67 @@ async def inbound_fax(
     request: Request,
     x_documo_signature: str | None = Header(default=None),
 ) -> dict:
-    """Receive fax callback from Documo when a provider faxes records back.
+    """Receive fax callback from Documo or Twilio when a provider faxes records back.
 
-    Documo sends a webhook with the fax metadata and a media_url to download
-    the PDF. The system matches by fax number and stores the document.
+    Documo: sends webhook with fax metadata and media_url.
+    Twilio: sends standard POST with FaxSid, MediaUrl, From, To, NumPages.
+    The system matches by fax number and stores the document.
     """
     try:
         payload: dict = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+        try:
+            form = await request.form()
+            payload = dict(form)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid payload.")
 
+    # Twilio sends form-encoded; Documo sends JSON
     result = await process_inbound_fax(payload, x_documo_signature or "")
+    if not result.success:
+        return {"status": "unmatched", "error": result.error}
+
+    return {
+        "status": "stored",
+        "document_id": str(result.document_id) if result.document_id else None,
+        "case_id": str(result.case_id) if result.case_id else None,
+    }
+
+
+# ── Twilio inbound fax webhook ──
+
+@router.post("/twilio-inbound-fax")
+async def twilio_inbound_fax(request: Request) -> dict:
+    """Receive inbound fax webhook from Twilio.
+
+    Twilio sends POST with form fields: FaxSid, From, To, MediaUrl, NumPages.
+    The system downloads the PDF from MediaUrl and stores it.
+    """
+    try:
+        form = await request.form()
+        payload = dict(form)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid form payload.")
+
+    fax_sid = payload.get("FaxSid", "")
+    from_number = payload.get("From", "")
+    to_number = payload.get("To", "")
+    media_url = payload.get("MediaUrl", "")
+    pages = int(payload.get("NumPages", "0"))
+
+    if not fax_sid or not media_url:
+        return {"status": "missing_data", "error": "FaxSid or MediaUrl missing"}
+
+    normalized = {
+        "id": fax_sid,
+        "from": from_number,
+        "to": to_number,
+        "media_url": media_url,
+        "pages": pages,
+        "status": "received",
+    }
+
+    result = await process_inbound_fax(normalized)
     if not result.success:
         return {"status": "unmatched", "error": result.error}
 

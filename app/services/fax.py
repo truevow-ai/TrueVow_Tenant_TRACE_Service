@@ -1,10 +1,10 @@
-"""FaxService abstraction — SRFax, Documo, or Fax.Plus.
+"""FaxService abstraction — SRFax, Documo, Twilio, or Fax.Plus.
 
 ADR-003 §5: sandbox bake-off selects the vendor. Real HTTP implementations
-for SRFax (primary candidate), Documo, and Fax.Plus.
+for SRFax (primary candidate), Documo, Twilio, and Fax.Plus.
 
 Vendor selected via FAX_PROVIDER env var. Fails loudly on unrecognized
-provider — no silent fallback. Phase 1C uses sandbox credentials.
+provider — no silent fallback.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ class FaxProvider(str, Enum):
     SRFAX = "srfax"
     DOCUMO = "documo"
     FAXPLUS = "faxplus"
+    TWILIO = "twilio"
 
 
 @dataclass
@@ -181,17 +182,80 @@ class FaxPlusService(FaxService):
             )
 
 
+class TwilioService(FaxService):
+    """Twilio Programmable Fax API — $0.01/page pay-as-you-go.
+
+    Uses Twilio account credentials already configured in the environment.
+    Outbound: POST /v1/Faxes with MediaUrl (Supabase pre-signed URL).
+    Inbound: Webhook endpoint receives received fax callbacks.
+    """
+
+    def __init__(self) -> None:
+        self._account_sid = os.getenv("TWILIO_ACCOUNT_SID") or os.getenv("Twilio_Account_SID", "")
+        self._auth_token = os.getenv("TWILIO_AUTH_TOKEN") or os.getenv("Twilio_Auth_Token", "")
+        self._from_number = os.getenv("FAX_RETURN_NUMBER") or os.getenv("TWILIO_PHONE_NUMBER", "")
+        self._api_url = f"https://fax.twilio.com/v1/Faxes"
+
+    async def send(self, fax_number: str, document_pdf: bytes) -> FaxSendResult:
+        import base64
+        from app.storage.storage_service import get_storage_service
+        import uuid as _uuid
+
+        storage = get_storage_service()
+        media_key = f"fax-outbound/{_uuid.uuid4().hex}.pdf"
+        await storage.upload(media_key, document_pdf, "application/pdf")
+
+        signed_url = await storage.presign(media_key, 3600)
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                self._api_url,
+                auth=(self._account_sid, self._auth_token),
+                data={
+                    "To": fax_number,
+                    "From": self._from_number,
+                    "MediaUrl": signed_url,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+            return FaxSendResult(
+                transmission_id=data.get("sid", "unknown"),
+                status="sent" if data.get("status") in ("queued", "processing", "sending") else "failed",
+            )
+
+    async def get_status(self, transmission_id: str) -> FaxStatusResult:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self._api_url}/{transmission_id}",
+                auth=(self._account_sid, self._auth_token),
+            )
+            response.raise_for_status()
+            data = response.json()
+            status_map = {
+                "queued": "pending", "processing": "pending", "sending": "sent",
+                "delivered": "delivered", "received": "delivered",
+                "failed": "failed", "canceled": "failed",
+            }
+            return FaxStatusResult(
+                transmission_id=transmission_id,
+                status=status_map.get(data.get("status", ""), "pending"),
+            )
+
+
 def create_fax_service() -> FaxService:
-    provider = os.getenv("FAX_PROVIDER", "documo").lower()
+    provider = os.getenv("FAX_PROVIDER", "twilio").lower()
     if provider == FaxProvider.DOCUMO.value:
         return DocumoService()
     if provider == FaxProvider.FAXPLUS.value:
         return FaxPlusService()
     if provider == FaxProvider.SRFAX.value:
         return SRFaxService()
+    if provider == FaxProvider.TWILIO.value:
+        return TwilioService()
     raise ValueError(
         f"Unrecognized FAX_PROVIDER: {provider!r}. "
-        f"Must be one of: documo, faxplus, srfax."
+        f"Must be one of: documo, faxplus, srfax, twilio."
     )
 
 
