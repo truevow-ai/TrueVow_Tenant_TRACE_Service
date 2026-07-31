@@ -19,7 +19,7 @@ from app.shared.event_store import EventEnvelope
 GOLDEN_EVENT_ID = "e1a2b3c4-0001-4000-8000-000000000001"
 GOLDEN_TENANT_ID = "11111111-1111-4111-8111-111111111111"
 GOLDEN_MATTER_ID = "d379ee9b-19f7-4871-a86e-9684c69a11c3"
-GOLDEN_TIMESTAMP = "1712345678"
+GOLDEN_TIMESTAMP = "1712345678000"  # milliseconds per WebhookSignature v1.0
 GOLDEN_KEY_ID = "test_key_v1"
 GOLDEN_KEY_SECRET = "test-secret-at-least-32-bytes-long-000"
 GOLDEN_METHOD = "POST"
@@ -260,7 +260,7 @@ class TestGoldenFixture:
         from app.shared.webhook_auth import VerifyStatus, WebhookVerifier
 
         verifier = WebhookVerifier(tolerance_seconds=300)
-        expired = str(int(time.time()) - 600)
+        expired = str(int(time.time() * 1000) - 600_000)  # 10 min ago in ms
         result = verifier.verify(GOLDEN_KEY_ID, expired, GOLDEN_HMAC,
                                   GOLDEN_METHOD, GOLDEN_PATH, GOLDEN_RAW_BODY)
         assert result.status == VerifyStatus.EXPIRED_TIMESTAMP

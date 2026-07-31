@@ -161,18 +161,19 @@ class WebhookVerifier:
             return VerifyResult(VerifyStatus.UNKNOWN_KEY, f"Unknown key ID: {key_id}")
 
         try:
-            timestamp = int(timestamp_str)
+            timestamp_ms = int(timestamp_str)
         except (ValueError, TypeError):
             return VerifyResult(VerifyStatus.INVALID_SIGNATURE, "Timestamp is not a valid integer")
 
-        now = int(time.time())
-        age = now - timestamp
-        if age < -self._tolerance_seconds:
+        now_ms = int(time.time() * 1000)
+        age_ms = now_ms - timestamp_ms
+        tolerance_ms = self._tolerance_seconds * 1000
+        if age_ms < -tolerance_ms:
             return VerifyResult(VerifyStatus.FUTURE_TIMESTAMP,
-                               f"Timestamp is {abs(age)}s in the future (tolerance: {self._tolerance_seconds}s)")
-        if age > self._tolerance_seconds:
+                               f"Timestamp is {abs(age_ms)}ms in the future (tolerance: {tolerance_ms}ms)")
+        if age_ms > tolerance_ms:
             return VerifyResult(VerifyStatus.EXPIRED_TIMESTAMP,
-                               f"Timestamp is {age}s old (tolerance: {self._tolerance_seconds}s)")
+                               f"Timestamp is {age_ms}ms old (tolerance: {tolerance_ms}ms)")
 
         body_hash = hashlib.sha256(raw_body).hexdigest()
         canonical_string = f"{timestamp_str}:{method}:{path}:{body_hash}"
