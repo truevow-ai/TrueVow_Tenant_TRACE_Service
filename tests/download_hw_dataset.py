@@ -1,7 +1,6 @@
 """Download real handwritten medical records from HuggingFace for spike testing.
 Uses httpx to download parquet files directly — no datasets library needed.
 """
-import shutil
 from pathlib import Path
 
 import httpx

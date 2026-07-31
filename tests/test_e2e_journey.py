@@ -1,5 +1,8 @@
 """End-to-end synthetic journey walkthrough test."""
-import asyncio, json, os, sys, uuid
+import asyncio
+import os
+import sys
+import uuid
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -96,7 +99,7 @@ async def main():
         # 11. Duplicate case (409 expected)
         r = await step("11. Duplicate case", lambda: c.post(f"{BASE}/cases", json=case_data, headers=h))
 
-        print(f"\n=== JOURNEY COMPLETE ===")
+        print("\n=== JOURNEY COMPLETE ===")
         return case_id
 
 

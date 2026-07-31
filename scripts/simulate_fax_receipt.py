@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import sys
 import uuid
-from datetime import datetime, timezone
 from io import BytesIO
 
 

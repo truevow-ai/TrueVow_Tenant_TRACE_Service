@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -87,11 +87,11 @@ async def list_liens(
         "case_id": str(case_id),
         "liens": [
             {
-                "lien_id": str(l.lien_id), "lien_type": l.lien_type,
-                "lienholder": l.lienholder, "claimed_amount": float(l.claimed_amount) if l.claimed_amount else None,
-                "status": l.status, "notes": l.notes,
+                "lien_id": str(lien.lien_id), "lien_type": lien.lien_type,
+                "lienholder": lien.lienholder, "claimed_amount": float(lien.claimed_amount) if lien.claimed_amount else None,
+                "status": lien.status, "notes": lien.notes,
             }
-            for l in liens
+            for lien in liens
         ],
     }
 

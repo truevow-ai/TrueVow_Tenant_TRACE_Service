@@ -54,7 +54,11 @@ def _do_run_migrations(connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    engine = create_async_engine(_db_url(), pool_pre_ping=True, connect_args={"statement_cache_size": 0})
+    connect_args: dict = {"statement_cache_size": 0}
+    if "pooler.supabase.com" in _db_url():
+        connect_args["statement_cache_size"] = 0
+    connect_args["server_settings"] = {"search_path": "trace"}
+    engine = create_async_engine(_db_url(), pool_pre_ping=True, connect_args=connect_args)
     async with engine.connect() as connection:
         await connection.run_sync(_do_run_migrations)
     await engine.dispose()

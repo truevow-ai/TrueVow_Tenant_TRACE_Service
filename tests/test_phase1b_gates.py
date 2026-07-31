@@ -86,15 +86,10 @@ async def test_docuseal_webhook_is_idempotent(client):
     The unique_docuseal_submission constraint on signed_documents
     enforces this at the database level.
     """
-    import hashlib
-    import hmac
-    import json
-    import os
     from sqlalchemy import select
     from sqlalchemy.exc import IntegrityError
 
     from app.core.database import async_session_maker
-    from app.models.case import Case
     from app.models.signed_document import SignedDocument
 
     firm = str(uuid.uuid4())

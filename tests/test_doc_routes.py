@@ -1,5 +1,10 @@
 """Test attorney upload + portal link routes."""
-import os, sys, io, jwt, httpx, asyncio, uuid
+import os
+import sys
+import io
+import jwt
+import httpx
+import asyncio
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['ENVIRONMENT']='development'
 os.environ['AUTH_MODE']='local'
@@ -8,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv('.env.local', override=True)
 os.environ['AUTH_MODE']='local'  # re-override after dotenv
 os.environ['LOCAL_JWT_SECRET']='test-secret-at-least-32-bytes-long-000'
-from app.main import app
+from app.main import app  # noqa: E402
 
 FIRM = '11111111-1111-4111-8111-111111111111'
 CASE = 'd379ee9b-19f7-4871-a86e-9684c69a11c3'
@@ -33,4 +38,5 @@ async def test():
         })
         print(f'[2] Portal: {r.status_code} {r.text[:200]}')
 
-asyncio.run(test())
+if __name__ == "__main__":
+    asyncio.run(test())

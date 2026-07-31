@@ -72,16 +72,12 @@ def _gen_pdf(title: str, content: str) -> bytes:
 
 def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
     """Seed a complete synthetic case. Returns case_id string."""
-    from sqlalchemy import select
 
-    from app.core.config import settings
-    from app.core.database import async_session_maker, phi_session_maker
+    from app.core.database import async_session_maker
     from app.models.case import Case
-    from app.models.client import Client
     from app.models.lien import Lien
     from app.models.medical_bill import MedicalBillLine
     from app.models.provider import Provider
-    from app.models.record_request import RecordRequest
     from app.services.phi_store import store_client
 
     import asyncio
@@ -172,7 +168,7 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
                 session.add(p)
                 await session.flush()
                 provider_ids.append(str(p.provider_id))
-            print(f"  [OK] 3 providers seeded")
+            print("  [OK] 3 providers seeded")
 
             # ── Lien ──
             lien = Lien(
@@ -185,7 +181,7 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
                 notes="Synthetic lien for user journey testing",
             )
             session.add(lien)
-            print(f"  [OK] Lien seeded: Blue Shield — $1,847.50")
+            print("  [OK] Lien seeded: Blue Shield — $1,847.50")
 
             # ── Medical bill ──
             bill = MedicalBillLine(
@@ -201,7 +197,7 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
                 needs_review=False,
             )
             session.add(bill)
-            print(f"  [OK] Billing seeded: CPT 99285 — $4,200.00")
+            print("  [OK] Billing seeded: CPT 99285 — $4,200.00")
 
             await session.commit()
 
@@ -210,9 +206,9 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
         print(f"  Case ID: {case_id}")
         print(f"  Attorney: {SYNTHETIC_ATTORNEY['name']} ({SYNTHETIC_ATTORNEY['email']})")
         print(f"  Client: {SYNTHETIC_CLIENT['name']} (SYNTHETIC)")
-        print(f"  Providers: 3 (1 CONFIRMED, 1 NEEDS_CLIENT, 1 DO_NOT_REQUEST)")
-        print(f"  Lien: 1 (NOT_CHECKED)")
-        print(f"  Bill: 1 (STRONG_MATCH)")
+        print("  Providers: 3 (1 CONFIRMED, 1 NEEDS_CLIENT, 1 DO_NOT_REQUEST)")
+        print("  Lien: 1 (NOT_CHECKED)")
+        print("  Bill: 1 (STRONG_MATCH)")
         print(f"  {'='*60}\n")
         return case_id
 
@@ -229,21 +225,21 @@ if __name__ == "__main__":
 
     if args.dry_run:
         print("=" * 60)
-        print(f"  TRACE SYNTHETIC JOURNEY SEEDER -- DRY RUN")
+        print("  TRACE SYNTHETIC JOURNEY SEEDER -- DRY RUN")
         print("=" * 60)
-        print(f"\n  Would create:")
+        print("\n  Would create:")
         print(f"  [OK] Synthetic client: {SYNTHETIC_CLIENT['name']}")
         print(f"  [OK] Case: {SYNTHETIC_INCIDENT['description'][:60]}...")
         print(f"  [OK] Attorney: {SYNTHETIC_ATTORNEY['name']}")
         print(f"  [OK] Firm ID: {SYNTHETIC_ATTORNEY['firm_id']}")
-        print(f"  [OK] Providers: 3 (1 CONFIRMED, 1 NEEDS_CLIENT, 1 DO_NOT_REQUEST)")
-        print(f"  [OK] Lien: 1 (NOT_CHECKED)")
-        print(f"  [OK] Bill: 1 (STRONG_MATCH)")
-        print(f"\n  [WARN] firm_id is hardcoded UUID format")
+        print("  [OK] Providers: 3 (1 CONFIRMED, 1 NEEDS_CLIENT, 1 DO_NOT_REQUEST)")
+        print("  [OK] Lien: 1 (NOT_CHECKED)")
+        print("  [OK] Bill: 1 (STRONG_MATCH)")
+        print("\n  [WARN] firm_id is hardcoded UUID format")
         print(f"     Current: {SYNTHETIC_ATTORNEY['firm_id']}")
-        print(f"     Expected after M1: org_synthetic_test_001 (Clerk org_id TEXT)")
-        print(f"     M1 migration handles conversion -- no fix needed now")
-        print(f"\n  Database: NOT TOUCHED (dry run)")
+        print("     Expected after M1: org_synthetic_test_001 (Clerk org_id TEXT)")
+        print("     M1 migration handles conversion -- no fix needed now")
+        print("\n  Database: NOT TOUCHED (dry run)")
         print(f"  Environment: {args.environment}")
         print(f"  Confirm synthetic: {'YES' if args.confirm_synthetic else 'NO (required for live run)'}")
         sys.exit(0)

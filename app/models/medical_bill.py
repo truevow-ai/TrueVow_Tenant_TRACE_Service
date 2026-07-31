@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import date as date_type
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, Uuid
+from sqlalchemy import Boolean, Date, ForeignKey, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin

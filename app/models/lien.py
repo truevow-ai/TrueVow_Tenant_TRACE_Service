@@ -8,9 +8,8 @@ attorney sets so liens are not overlooked before demand.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, Uuid, func
+from sqlalchemy import ForeignKey, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin

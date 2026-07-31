@@ -194,10 +194,9 @@ class TwilioService(FaxService):
         self._account_sid = os.getenv("TWILIO_ACCOUNT_SID") or os.getenv("Twilio_Account_SID", "")
         self._auth_token = os.getenv("TWILIO_AUTH_TOKEN") or os.getenv("Twilio_Auth_Token", "")
         self._from_number = os.getenv("FAX_RETURN_NUMBER") or os.getenv("TWILIO_PHONE_NUMBER", "")
-        self._api_url = f"https://fax.twilio.com/v1/Faxes"
+        self._api_url = "https://fax.twilio.com/v1/Faxes"
 
     async def send(self, fax_number: str, document_pdf: bytes) -> FaxSendResult:
-        import base64
         from app.storage.storage_service import get_storage_service
         import uuid as _uuid
 

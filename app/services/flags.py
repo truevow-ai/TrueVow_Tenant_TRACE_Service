@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date
 from enum import Enum
 
 
@@ -120,7 +120,7 @@ def detect_sudden_treatment_stop(
     return FlagResult(
         flag_id=uuid.uuid4(), case_id=case_id, flag_type="SUDDEN_TREATMENT_STOP",
         priority=FlagPriority.PRIORITY, rule_name="sudden_treatment_stop",
-        description=f"Treatment ends with no discharge note, MMI notation, or referral documented.",
+        description="Treatment ends with no discharge note, MMI notation, or referral documented.",
         matched_string=last_entry_text[:200],
         matched_in_entry_id=entry_id,
         provenance=_build_provenance("sudden_treatment_stop", last_entry_text[:200], entry_id),
@@ -255,7 +255,6 @@ def run_all_tier1_flags(
         if d2:
             all_flags.append(d2)
 
-        # Compute subsequent dates for T1-03 follow-up check
         subsequent_dates = [
             e.get("event_date")
             for e in chronology_entries
@@ -269,10 +268,68 @@ def run_all_tier1_flags(
         all_flags.extend(detect_clinician_credibility_language(case_id, text, entry_id))
 
     if billing_records:
-        # Build document set for T1-05 cross-check
         documents_in_set = [
             {"document_id": e.get("source_document_id"), "date": e.get("event_date")}
             for e in chronology_entries if e.get("source_document_id")
+        ]
+        for bill in billing_records:
+            d5 = detect_bill_without_procedure_report(
+                case_id, bill.get("cpt_code", ""), bill.get("service_date", date.today()),
+                documents_in_set,
+            )
+            if d5:
+                all_flags.append(d5)
+
+    return all_flags
+
+
+def run_all_tier1_flags_from_facts(
+    case_id: uuid.UUID,
+    incident_date: date,
+    facts: list[dict],
+    billing_records: list[dict] | None = None,
+) -> list[FlagResult]:
+    """Run all Tier 1 flag detectors against EvidenceFact-derived dicts.
+
+    Accepts EvidenceFact-sourced dicts with keys: fact_id, fact_date,
+    fact_text, source_document_id, source_page_number.
+    """
+    all_flags: list[FlagResult] = []
+    facts_with_dates = [f for f in facts if f.get("fact_date")]
+
+    if facts_with_dates:
+        first_date = min(
+            (f.get("fact_date") for f in facts_with_dates),
+            default=None,
+        )
+        d1 = detect_delayed_initial_treatment(case_id, incident_date, first_date)
+        if d1:
+            all_flags.append(d1)
+
+    for fact in facts:
+        fact_id = fact.get("fact_id")
+        text = fact.get("fact_text", "")
+        if not text:
+            continue
+
+        d2 = detect_sudden_treatment_stop(case_id, text, uuid.UUID(fact_id) if isinstance(fact_id, str) else fact_id)
+        if d2:
+            d2.source_doc_before = uuid.UUID(fact.get("source_document_id")) if fact.get("source_document_id") else None
+            all_flags.append(d2)
+
+        all_flags.extend(detect_non_compliant_language(
+            case_id, text,
+            uuid.UUID(fact_id) if isinstance(fact_id, str) else fact_id,
+        ))
+        all_flags.extend(detect_clinician_credibility_language(
+            case_id, text,
+            uuid.UUID(fact_id) if isinstance(fact_id, str) else fact_id,
+        ))
+
+    if billing_records:
+        documents_in_set = [
+            {"document_id": f.get("source_document_id"), "date": f.get("fact_date")}
+            for f in facts if f.get("source_document_id")
         ]
         for bill in billing_records:
             d5 = detect_bill_without_procedure_report(

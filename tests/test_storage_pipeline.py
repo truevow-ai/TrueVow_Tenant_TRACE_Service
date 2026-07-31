@@ -1,9 +1,15 @@
 """Test doc upload to Supabase Storage + full pipeline against real data."""
-import os, sys, asyncio, httpx, io
+import os
+import sys
+import asyncio
+import httpx
+import io
+import uuid
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from dotenv import load_dotenv; load_dotenv('.env.local', override=True)
-from app.core.database import async_session_maker
-from sqlalchemy import select, text
+from dotenv import load_dotenv
+load_dotenv('.env.local', override=True)
+from app.core.database import async_session_maker  # noqa: E402
+from sqlalchemy import select  # noqa: E402
 
 CASE_ID = "d379ee9b-19f7-4871-a86e-9684c69a11c3"  # from seeder
 FIRM_ID = "11111111-1111-4111-8111-111111111111"
@@ -18,8 +24,12 @@ def make_pdf(title, content):
     c.setFont("Helvetica", 10)
     y = 670
     for line in content.split('\n'):
-        if y < 50: c.showPage(); c.setFont("Helvetica", 10); y = 700
-        c.drawString(50, y, line[:120]); y -= 14
+        if y < 50:
+            c.showPage()
+            c.setFont("Helvetica", 10)
+            y = 700
+        c.drawString(50, y, line[:120])
+        y -= 14
     c.save()
     return buf.getvalue()
 
@@ -36,7 +46,7 @@ async def main():
     # 1. Verify case exists
     async with async_session_maker() as s:
         from app.models.case import Case
-        r = await s.execute(select(Case).where(Case.case_id == CASE_ID))
+        r = await s.execute(select(Case).where(Case.case_id == uuid.UUID(CASE_ID)))
         case = r.scalar_one_or_none()
         if not case:
             print("Case not found!")
@@ -80,12 +90,11 @@ async def main():
         )
         print(f"[2] Upload: {r.status_code}")
         if r.status_code == 400 and 'already exists' in r.text.lower():
-            print(f"    File already exists - OK")
+            print("    File already exists - OK")
         elif r.status_code not in (200, 201):
             print(f"    Error: {r.text[:200]}")
     
     # 3. Create Document record
-    import uuid as uuid_mod
     async with async_session_maker() as s:
         from app.models.document import Document
         existing = await s.execute(select(Document).where(Document.s3_key == doc_name))
@@ -94,17 +103,18 @@ async def main():
             print(f"[3] Doc exists: {doc.document_id}")
         else:
             doc = Document(
-                case_id=CASE_ID, provider_id=None,
+                case_id=uuid.UUID(CASE_ID), provider_id=None,
                 s3_bucket=bucket, s3_key=doc_name,
                 document_type='ER_NOTE', page_count=1,
                 ocr_status='PENDING', source='ATTORNEY_UPLOAD',
                 original_filename=doc_name,
             )
-            s.add(doc); await s.commit()
+            s.add(doc)
+            await s.commit()
             print(f"[3] Doc created: {doc.document_id}")
     
     # 4. Simulate OCR + chronology (direct python, not API)
-    print(f"\n[4] Simulating OCR via Mistral...")
+    print("\n[4] Simulating OCR via Mistral...")
     
     # Download the PDF back
     async with httpx.AsyncClient(timeout=60) as supa:
@@ -140,7 +150,7 @@ async def main():
                 for e in chron.entries[:3]:
                     print(f"    - {e.event_date.date()} | {e.event_type.value} | {e.clinical_description[:60]}")
             else:
-                print(f"    (No clinical entities found in text)")
+                print("    (No clinical entities found in text)")
             
             # Export
             from app.services.export import ChronologyExporter
@@ -154,7 +164,7 @@ async def main():
         else:
             print(f"    Download failed: {r.status_code}")
     
-    print(f"\nPipeline complete")
+    print("\nPipeline complete")
 
-import json
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

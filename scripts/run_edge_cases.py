@@ -12,7 +12,7 @@ os.environ.pop("DATABASE_URL", None)
 
 import asyncio
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date
 
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -132,7 +132,7 @@ async def run_edge_cases():
             "client_data": {"name": "Test", "dob": "1985-01-01", "address": "X", "phone": "555"},
             "incident_date": "2024-01-15", "jurisdiction_state": "CA",
         }
-        r1 = await c.post("/api/v1/trace/cases", json=base, headers=h_a)
+        await c.post("/api/v1/trace/cases", json=base, headers=h_a)
         r2 = await c.post("/api/v1/trace/cases", json=base, headers=h_a)
         if r2.status_code == 409:
             _ok("EC-07: Duplicate intake record returns 409")

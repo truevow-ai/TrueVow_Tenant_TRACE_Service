@@ -43,9 +43,9 @@ async def get_client(client_token: uuid.UUID) -> dict | None:
             return None
         return {
             "client_token": str(client.client_token),
-            "name": decrypt(client.encrypted_name),
-            "dob": decrypt(client.encrypted_dob),
-            "address": decrypt(client.encrypted_address),
-            "phone": decrypt(client.encrypted_phone),
+            "name": decrypt(client.encrypted_name) if client.encrypted_name else "",
+            "dob": decrypt(client.encrypted_dob) if client.encrypted_dob else "",
+            "address": decrypt(client.encrypted_address) if client.encrypted_address else "",
+            "phone": decrypt(client.encrypted_phone) if client.encrypted_phone else "",
             "firm_id": str(client.firm_id),
         }

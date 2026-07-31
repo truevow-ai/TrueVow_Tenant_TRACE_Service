@@ -2,12 +2,14 @@
 
 ADR-004 §6: export blocked until demand-ready. Disclaimer on every page.
 Two formats: PDF (with footer disclaimer) and JSON (structured for CMS import).
+
+Phase 2A: export includes full source provenance per fact — source document,
+page, extraction method, confidence, review status, and contradictions.
 """
 
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 
@@ -41,7 +43,6 @@ class ChronologyExporter:
         width, height = letter
         today = datetime.now(timezone.utc).strftime("%B %d, %Y")
 
-        # Cover page
         c.setFont("Helvetica-Bold", 16)
         c.drawString(inch, height - inch, "CHRONOLOGY")
         c.setFont("Helvetica", 10)
@@ -52,7 +53,6 @@ class ChronologyExporter:
         if attorney_name:
             c.drawString(inch, height - inch - 80, f"Attorney: {attorney_name}")
 
-        # Full disclaimer on cover page
         y = height - inch - 110
         c.setFont("Helvetica-Bold", 10)
         c.drawString(inch, y, "DISCLAIMER")
@@ -62,26 +62,40 @@ class ChronologyExporter:
             c.drawString(inch, y, line)
             y -= 11
 
-        # Entries
         y = height - inch - 220
         for entry in entries:
-            if y < inch + 40:
+            if y < inch + 60:
                 c.showPage()
                 y = height - inch
-                # Footer on every page
                 c.setFont("Helvetica", 7)
                 c.drawString(inch, 30, "ATTORNEY WORK PRODUCT — PRIVILEGED AND CONFIDENTIAL — Page continues")
             c.setFont("Helvetica-Bold", 9)
-            c.drawString(inch, y, f"{entry.get('event_date', '')} — {entry.get('event_type', '')}")
+            event_date = entry.get("event_date", "")
+            event_type = entry.get("event_type", entry.get("fact_type", ""))
+            c.drawString(inch, y, f"{event_date} — {event_type}")
             c.setFont("Helvetica", 8)
             y -= 14
-            desc = entry.get("clinical_description", "")[:150]
+            desc = entry.get("clinical_description", entry.get("fact_text", ""))[:150]
             c.drawString(inch, y, desc)
             y -= 14
-            c.drawString(inch, y, f"Source: {entry.get('source_document_id', '')} p.{entry.get('source_page_number', '')}")
-            y -= 20
+            src_id = entry.get("source_document_id", "N/A")
+            src_page = entry.get("source_page_number", "?")
+            src_method = entry.get("extraction_method", "")
+            src_conf = entry.get("extraction_confidence", "")
+            provenance = f"Source: {src_id} p.{src_page}"
+            if src_method:
+                provenance += f" | Extracted: {src_method}"
+                if src_conf:
+                    provenance += f" ({src_conf})"
+            c.setFont("Helvetica", 7)
+            c.drawString(inch, y, provenance)
+            review = entry.get("review_status", "")
+            if review and review != "UNREVIEWED":
+                c.drawString(inch + 300, y, f"[{review}]")
+            if entry.get("is_contradicted"):
+                c.drawString(inch + 350, y, "[CONTRADICTED]")
+            y -= 16
 
-        # Final page footer
         c.setFont("Helvetica", 7)
         c.drawString(inch, 30, EXPORT_DISCLAIMER.split("\n")[0])
 
@@ -98,20 +112,23 @@ class ChronologyExporter:
         sol_confirmed: bool,
         entries: list[dict],
         flags_summary: dict | None = None,
+        contradictions: list[dict] | None = None,
+        missing_evidence: list[dict] | None = None,
     ) -> str:
-        return json.dumps(
-            {
-                "trace_export_version": "1.0",
-                "exported_at": datetime.now(timezone.utc).isoformat(),
-                "matter_reference": matter_reference,
-                "incident_date": incident_date,
-                "sol_estimate": sol_estimate,
-                "sol_table_version": sol_table_version,
-                "sol_attorney_confirmed": sol_confirmed,
-                "disclaimer": EXPORT_DISCLAIMER,
-                "chronology": entries,
-                "flags_summary": flags_summary or {},
-            },
-            indent=2,
-            default=str,
-        )
+        payload = {
+            "trace_export_version": "2.0",
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "matter_reference": matter_reference,
+            "incident_date": incident_date,
+            "sol_estimate": sol_estimate,
+            "sol_table_version": sol_table_version,
+            "sol_attorney_confirmed": sol_confirmed,
+            "disclaimer": EXPORT_DISCLAIMER,
+            "chronology": entries,
+            "flags_summary": flags_summary or {},
+        }
+        if contradictions:
+            payload["contradictions"] = contradictions
+        if missing_evidence:
+            payload["missing_evidence"] = missing_evidence
+        return json.dumps(payload, indent=2, default=str)

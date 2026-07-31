@@ -28,8 +28,7 @@ def _case_payload(**over) -> dict:
 
 def test_disclaimer_is_on_every_export_page():
     """PDF export must include the disclaimer on every page, not just the cover."""
-    from io import BytesIO
-    from app.services.export import EXPORT_DISCLAIMER, ChronologyExporter
+    from app.services.export import ChronologyExporter
 
     exporter = ChronologyExporter()
     entries = [

@@ -203,11 +203,11 @@ async def run_journey():
         r = await c.get(
             f"/api/v1/trace/cases/{case_id}/liens", headers=headers
         )
-        liens_data = r.json()
-        print(f"[12] Readiness Board: liens OK | providers OK | bills OK")
+        r.json()
+        print("[12] Readiness Board: liens OK | providers OK | bills OK")
 
     print(f"\n{'='*60}")
-    print(f"  ALL 12 STEPS VERIFIED")
+    print("  ALL 12 STEPS VERIFIED")
     print(f"  Case {case_id} ready for manual walkthrough")
     print(f"{'='*60}\n")
 

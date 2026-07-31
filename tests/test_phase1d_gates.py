@@ -35,7 +35,7 @@ async def test_raw_phi_never_in_db_after_ocr_pipeline(client):
     log entry, or storage path. This test catches the regression where the
     de-ID step is accidentally skipped or bypassed.
     """
-    from sqlalchemy import select, text
+    from sqlalchemy import select
 
     from app.core.database import async_session_maker
     from app.models.case import Case

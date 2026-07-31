@@ -164,21 +164,32 @@ class OpenMedService:
             ]
             return NERResult(entities=entities)
 
-        entities: list[ClinicalEntity] = []
+        regex_entities: list[ClinicalEntity] = []
         all_patterns = list(PROVIDER_PATTERNS) + list(CLINICAL_ENTITY_PATTERNS)
         for pattern, label in all_patterns:
             for match in re.finditer(pattern, redacted_text, re.IGNORECASE):
                 groups = match.groups()
-                for group in groups:
-                    if group and len(group.strip()) >= 2:
-                        entities.append(ClinicalEntity(
+                if groups:
+                    for group in groups:
+                        if group and len(group.strip()) >= 2:
+                            regex_entities.append(ClinicalEntity(
+                                label=label.upper(),
+                                text=group.strip(),
+                                confidence=0.75,
+                                start_char=match.start(),
+                                end_char=match.end(),
+                            ))
+                else:
+                    matched = match.group(0)
+                    if matched and len(matched.strip()) >= 2:
+                        regex_entities.append(ClinicalEntity(
                             label=label.upper(),
-                            text=group.strip(),
+                            text=matched.strip(),
                             confidence=0.75,
                             start_char=match.start(),
                             end_char=match.end(),
                         ))
-        return NERResult(entities=entities)
+        return NERResult(entities=regex_entities)
 
     async def extract_providers_from_transcript(self, transcript: str) -> list[str]:
         """Extract provider names from an intake transcript for NPI lookup."""

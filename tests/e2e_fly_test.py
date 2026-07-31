@@ -1,5 +1,8 @@
 """Full E2E pipeline test for Fly.io — uploads doc, runs OCR, builds chronology, flags, exports."""
-import asyncio, io, json, os, uuid
+import asyncio
+import io
+import os
+import uuid
 
 async def main():
     CASE_ID = uuid.UUID("d379ee9b-19f7-4871-a86e-9684c69a11c3")
@@ -91,7 +94,7 @@ async def main():
     print(f"\n[6] Export JSON: {len(json_out)} bytes | PDF: {pdf_out.getbuffer().nbytes} bytes")
     
     print(f"\n{'='*50}")
-    print(f"PIPELINE COMPLETE")
+    print("PIPELINE COMPLETE")
     print(f"  Storage: OK | OCR: {ocr.method} | Chronology: {chron.total_entries} entries")
     print(f"  Tier 1: {len(flags)} flags | Export: JSON {len(json_out)}B + PDF {pdf_out.getbuffer().nbytes}B")
     print(f"{'='*50}")

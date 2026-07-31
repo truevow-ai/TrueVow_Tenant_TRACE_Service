@@ -17,13 +17,12 @@ from dotenv import load_dotenv
 
 load_dotenv(".env.local", override=True)
 
-from sqlalchemy import text
+from sqlalchemy import text  # noqa: E402
 
 
 async def test_phi_encryption_round_trip_postgres():
     from app.core.crypto import encrypt, decrypt
     from app.core.database import phi_session_maker
-    from app.models.client import Client
     from app.services.phi_store import get_client, store_client
 
     original = "Maria Rodriguez"
@@ -72,7 +71,7 @@ async def test_phi_encryption_round_trip_postgres():
     assert round_tripped == original
 
     print(f"\n  Round-trip: {original!r} -> {cipher[:30]}... -> {round_tripped!r}")
-    print(f"  PHI encryption round-trip verified against real Supabase")
+    print("  PHI encryption round-trip verified against real Supabase")
 
     async with phi_session_maker() as session:
         await session.execute(
@@ -81,7 +80,7 @@ async def test_phi_encryption_round_trip_postgres():
         )
         await session.commit()
 
-    print(f"  Test row cleaned up")
+    print("  Test row cleaned up")
     return token
 
 
@@ -98,7 +97,7 @@ async def test_not_plaintext():
     for ch in cipher.rstrip("="):
         assert ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 
-    print(f"\n  Encrypt returns valid base64 str, no plaintext leaked")
+    print("\n  Encrypt returns valid base64 str, no plaintext leaked")
     return True
 
 

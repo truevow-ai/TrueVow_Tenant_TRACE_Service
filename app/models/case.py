@@ -71,6 +71,7 @@ class Case(Base, TimestampMixin):
     )
 
     event_nodes = relationship("EventNode", back_populates="case", cascade="all, delete-orphan")
+    evidence_facts = relationship("EvidenceFact", back_populates="case", cascade="all, delete-orphan")
 
     def to_summary(self) -> dict:
         """Firm-safe summary. Contains no PII (client is a token only)."""

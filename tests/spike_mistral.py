@@ -1,5 +1,7 @@
 """Mistral OCR smoke test against all 30 prescription images."""
-import json, os, base64
+import json
+import os
+import base64
 from datetime import datetime, timezone
 from pathlib import Path
 from collections import Counter
@@ -77,7 +79,7 @@ def main():
     mean_wer = sum(wers) / len(wers) if wers else 1.0
     median_wer = sorted(wers)[len(wers) // 2] if wers else 1.0
 
-    print(f"  ---")
+    print("  ---")
     print(f"  Images: {len(results)}")
     print(f"  Mean WER: {mean_wer:.3f} ({1 - mean_wer:.1%} accuracy)")
     print(f"  Median WER: {median_wer:.3f}")

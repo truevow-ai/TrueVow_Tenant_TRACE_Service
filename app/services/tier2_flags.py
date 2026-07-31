@@ -24,7 +24,6 @@ import os
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import date
 
 
 @dataclass
@@ -110,7 +109,7 @@ def _detect_t2_01_new_provider_no_referral(
                 flag_id=uuid.uuid4(), case_id=case_id,
                 flag_type="NEW_PROVIDER_NO_REFERRAL",
                 priority="ADVISORY", rule_name="new_provider_no_referral_t2_01",
-                description=f"New provider introduced without referral context.",
+                description="New provider introduced without referral context.",
                 source_quotes=[text[:200]],
             ))
 

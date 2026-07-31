@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.core.database import async_session_maker
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.case import Case
 from app.models.document import Document
@@ -117,7 +118,7 @@ async def process_inbound_email(
     """
     import json
 
-    webhook_secret = ""  # TODO: configure RESEND_INBOUND_WEBHOOK_SECRET in settings
+    webhook_secret = settings.resend_webhook_secret
     if not _verify_hmac(raw_body, webhook_secret, signature_header):
         logger.warning("Inbound email HMAC verification failed")
         return [InboundResult(success=False, error="Invalid HMAC signature")]

@@ -13,14 +13,14 @@ from dotenv import load_dotenv
 
 load_dotenv(".env.local", override=True)
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from app.api.v1 import router as v1_router
-from app.core.config import settings
-from app.core.errors import install_error_handlers
-from app.core.logging import get_logger
-from app.core.middleware import audit_middleware, correlation_id_middleware
+from app.api.v1 import router as v1_router  # noqa: E402
+from app.core.config import settings  # noqa: E402
+from app.core.errors import install_error_handlers  # noqa: E402
+from app.core.logging import get_logger  # noqa: E402
+from app.core.middleware import audit_middleware, correlation_id_middleware  # noqa: E402
 
 logger = get_logger("trace.main")
 
@@ -64,6 +64,10 @@ app.add_middleware(
 install_error_handlers(app)
 app.include_router(v1_router, prefix="/api/v1/trace")
 
+# Client Portal router — separate from v1/trace prefix (client-facing, not attorney)
+from app.api.v1.routes.client_portal import router as client_portal_router  # noqa: E402
+app.include_router(client_portal_router)
+
 
 @app.get("/health", tags=["health"])
 async def health() -> dict:
@@ -77,8 +81,8 @@ async def health() -> dict:
 
 @app.get("/run-pipeline", tags=["test"])
 async def run_pipeline_test():
-    import json, uuid
-    from datetime import date, datetime, timezone
+    import uuid
+    from datetime import date
 
     CASE_ID = uuid.UUID("d379ee9b-19f7-4871-a86e-9684c69a11c3")
     clinical_text = (
@@ -134,9 +138,10 @@ async def test_llm():
     return {"status": "ok", "provider": os.environ.get("LLM_SERVICE_PROVIDER", ""), "response": result.content[:200]}
 async def run_spike():
     """Run Mistral OCR spike against 30 prescription images from GitHub."""
-    import base64, io, json, os, urllib.request
-    from collections import Counter
-    from datetime import datetime, timezone
+    import base64
+    import io
+    import os
+    import urllib.request
 
     import pandas as pd
     from mistralai.client import Mistral
@@ -175,11 +180,9 @@ async def run_spike():
                 include_image_base64=False,
             )
             text = r.pages[0].markdown.strip() if r.pages else ""
-            cs = r.pages[0].confidence_scores
-            conf = cs.average_page_confidence_score if cs else 0.95
-        except Exception as exc:
+            r.pages[0].confidence_scores
+        except Exception:
             text = ""
-            conf = 0.0
 
         text_lower = text.lower()
         gt_tokens = [t.strip().rstrip(",") for t in gt.lower().split() if len(t.strip()) > 1]

@@ -1,12 +1,19 @@
 """Full pipeline test: upload docs -> OCR -> chronology -> flags -> export."""
-import os, sys, asyncio, uuid, jwt, httpx, io
+import os
+import sys
+import asyncio
+import uuid
+import jwt
+import httpx
+import io
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['ENVIRONMENT']='development'
 os.environ['AUTH_MODE']='local'
 os.environ['LOCAL_JWT_SECRET']='test-secret-at-least-32-bytes-long-000'
-from dotenv import load_dotenv; load_dotenv('.env.local', override=True)
-from app.main import app
-from app.core.database import async_session_maker
+from dotenv import load_dotenv
+load_dotenv('.env.local', override=True)
+from app.main import app  # noqa: E402
+from app.core.database import async_session_maker  # noqa: E402
 
 FIRM_ID = uuid.UUID('11111111-1111-4111-8111-111111111111')
 
@@ -25,7 +32,10 @@ def make_test_pdf(title, content):
     c.setFont("Helvetica", 10)
     y = 670
     for line in content.split('\n'):
-        if y < 50: c.showPage(); c.setFont("Helvetica", 10); y = 700
+        if y < 50:
+            c.showPage()
+            c.setFont("Helvetica", 10)
+            y = 700
         c.drawString(50, y, line[:120])
         y -= 14
     c.save()
@@ -88,7 +98,8 @@ async def main():
                 ocr_status='PENDING', source='api_upload',
                 original_filename=doc_name,
             )
-            session.add(doc); await session.commit()
+            session.add(doc)
+            await session.commit()
             print(f'[3] Doc record: {doc.document_id}')
         
         # 4. Chronology
@@ -107,4 +118,5 @@ async def main():
         print(f"\nCase: {cid}")
         print("=" * 50)
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

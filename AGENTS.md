@@ -257,10 +257,20 @@ python -c "import jwt; print(jwt.encode({'sub':'t','firm_id':'11111111-1111-4111
 
 | Session | What was done | State |
 |---------|--------------|-------|
+| Jul 31 | Portal access ownership model corrected | DONE |
+| Jul 31 | Contract normalization: EventEnvelope 1.0.1, 9 evidence refs, HMAC auth, global/tenant separation | DONE |
+| Jul 31 | MatterActivation handler: 8 rejection conditions, idempotent case creation | DONE |
+| Jul 30 | Phase 2A schema migration: 31 tables applied to Supabase (migration 0017) | DONE |
+| Jul 30 | Client portal endpoints: /api/client/v1/matters, completion, documents, requests, access | DONE |
+| Jul 30 | ClientAccessProjection model (TRACE-local mirror of Shared Platform canonical grant) | DONE |
+| Jul 29 | Shared foundation: AuthorityGate, ConsentLedger, PolicyRegistry, EventStore, StateMachine | DONE |
+| Jul 29 | Golden fixture test: 9 cross-repository contract validation tests | DONE |
+| Jul 29 | Webhook auth: HMAC-SHA256 aligned with SaaS Admin convention | DONE |
+| Jul 29 | Ontology alignment: 20 new models covering 40/42 TRACE entities | DONE |
+| Jul 27 | Source-linked evidence: EvidenceFact, SourceLocation, ContradictionPair, MissingEvidenceSignal | DONE |
 | Jul 24 | Inbound email/fax reception built + tested | DONE |
 | Jul 24 | 9 bugs fixed (firm isolation, export, JWT, schema) | DONE |
 | Jul 24 | TRACE portal module: 6 pages + proxy + client | DONE |
-| Jul 24 | Comprehensive documentation update (300+ line appendix) | DONE |
 | Jul 23 | DeepSeek API switched as billing LLM (Azure quota denied) | DONE |
 | Jul 23 | /llm-test endpoint wired (was dead code) | DONE |
 | Jul 19-23 | E2E testing: 60/60 tests passed | DONE |

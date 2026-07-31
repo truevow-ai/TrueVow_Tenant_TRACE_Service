@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, func
 
@@ -22,6 +22,7 @@ from app.models.document import Document
 from app.models.event_node import EventNode
 from app.models.lien import Lien
 from app.models.provider import Provider
+from app.shared import get_authority_gate, ActorRole
 from app.storage.storage_service import get_storage_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,30 +73,57 @@ async def get_chronology(
     firm_uuid = uuid.UUID(ctx.firm_id)
     case = await _get_case(case_id, firm_uuid)
 
-    async with async_session_maker() as session:
-        from app.models.case import CASE_STAGES
-        from app.services.chronology import build_chronology
+    from app.services.evidence import get_evidence_service
+    from app.services.chronology import build_chronology
 
-        # Count PRIORITY flags without attorney annotation
-        from app.models.case import Case as CaseModel
-        priority_unannotated = 0
-        total_flags = 0
-        annotated_flags = 0
+    evidence = get_evidence_service()
+    chronology = await evidence.build_chronology_from_facts(case_id)
 
+    if not chronology["entries"]:
         result = await build_chronology(case_id, redacted_pages=[])
+        chronology = result.to_api_response()
 
-        return {
-            "case_id": str(case_id),
-            "sol_deadline": case.sol_deadline.isoformat() if case.sol_deadline else None,
-            "sol_urgency": case.sol_urgency,
-            "case_stage": _plain_english_stage(case.case_stage),
-            "total_entries": result.total_entries,
-            "total_flags": total_flags,
-            "annotated_flags": annotated_flags,
-            "unannotated_priority_flags": priority_unannotated,
-            "demand_ready_blocked": priority_unannotated > 0,
-            "entries": result.to_api_response()["entries"],
-        }
+    priority_unannotated = 0
+    total_flags = 0
+    annotated_flags = 0
+
+    async with async_session_maker() as session:
+        priority_unannotated = (
+            await session.execute(
+                select(func.count()).where(
+                    EventNode.case_id == case_id,
+                    EventNode.flag_priority == "PRIORITY",
+                    EventNode.attorney_annotation.is_(None),
+                )
+            )
+        ).scalar() or 0
+        total_flags = (
+            await session.execute(
+                select(func.count()).where(EventNode.case_id == case_id)
+            )
+        ).scalar() or 0
+        annotated = (
+            await session.execute(
+                select(func.count()).where(
+                    EventNode.case_id == case_id,
+                    EventNode.attorney_annotation.isnot(None),
+                )
+            )
+        ).scalar() or 0
+        annotated_flags = annotated
+
+    return {
+        "case_id": str(case_id),
+        "sol_deadline": case.sol_deadline.isoformat() if case.sol_deadline else None,
+        "sol_urgency": case.sol_urgency,
+        "case_stage": _plain_english_stage(case.case_stage),
+        "total_entries": chronology.get("total_entries", 0),
+        "total_flags": total_flags,
+        "annotated_flags": annotated_flags,
+        "unannotated_priority_flags": priority_unannotated,
+        "demand_ready_blocked": priority_unannotated > 0,
+        "entries": chronology["entries"],
+    }
 
 
 @router.get("/chronology/{entry_id}")
@@ -182,9 +210,16 @@ async def approve_demand_ready(
     body: DemandReadyRequest,
     ctx: AuthContext = Depends(get_current_context),
 ) -> dict:
-    """Mark the chronology as demand-ready. Blocked if PRIORITY flags unannotated."""
+    """Mark the chronology as demand-ready. Blocked if PRIORITY flags unannotated. Requires ATTY_AUTH."""
     firm_uuid = uuid.UUID(ctx.firm_id)
     case = await _get_case(case_id, firm_uuid)
+
+    gate = get_authority_gate()
+    role_map = {"attorney": ActorRole.ATTORNEY, "admin": ActorRole.FIRM_ADMINISTRATOR}
+    actor_role = role_map.get(ctx.role or "", ActorRole.LEGAL_ASSISTANT)
+    result = gate.evaluate(action="trace.approve_demand_ready", actor_role=actor_role, actor_id=uuid.UUID(ctx.user_id) if ctx.user_id else None)
+    if not result.allowed:
+        raise HTTPException(status_code=403, detail=result.reason)
 
     # Check demand-ready gate: case must be in ATTORNEY_REVIEW stage
     if case.case_stage not in ("CHRONOLOGY_READY", "ATTORNEY_REVIEW"):
@@ -241,7 +276,7 @@ async def case_readiness(
 ) -> dict:
     """Case Readiness Board — what's complete, pending, missing."""
     try:
-        firm_uuid = uuid.UUID(ctx.firm_id)
+        uuid.UUID(ctx.firm_id)
     except (ValueError, TypeError):
         raise HTTPException(status_code=403)
 
@@ -266,9 +301,9 @@ async def case_export(
     ctx: AuthContext = Depends(get_current_context),
     db: AsyncSession = Depends(get_db),
 ):
-    """Export demand-ready case as PDF or JSON."""
+    """Export demand-ready case as PDF or JSON with full source provenance."""
     try:
-        firm_uuid = uuid.UUID(ctx.firm_id)
+        uuid.UUID(ctx.firm_id)
     except (ValueError, TypeError):
         raise HTTPException(status_code=403)
 
@@ -282,8 +317,14 @@ async def case_export(
             detail="Case is not demand-ready. Review and approve before exporting.",
         )
 
+    from app.services.evidence import get_evidence_service
     from app.services.export import ChronologyExporter
     from fastapi.responses import Response
+
+    evidence = get_evidence_service()
+    chronology = await evidence.build_chronology_from_facts(case_id)
+    contradictions = await evidence.get_contradictions_for_case(case_id)
+    missing_evidence = await evidence.get_missing_evidence_for_case(case_id)
 
     exporter = ChronologyExporter()
 
@@ -294,7 +335,9 @@ async def case_export(
             sol_estimate=case.sol_deadline.isoformat() if case.sol_deadline else "Unknown",
             sol_table_version=case.sol_table_version or "2026-07",
             sol_confirmed=False,
-            entries=[],
+            entries=chronology["entries"],
+            contradictions=contradictions,
+            missing_evidence=missing_evidence,
         )
         return data
     else:
@@ -302,7 +345,7 @@ async def case_export(
             matter_reference=str(case.case_id)[:8],
             incident_date=case.incident_date.isoformat() if case.incident_date else "",
             sol_estimate=case.sol_deadline.isoformat() if case.sol_deadline else "Unknown",
-            entries=[],
+            entries=chronology["entries"],
         )
         return Response(
             content=pdf_bytes.getvalue(),

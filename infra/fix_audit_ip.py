@@ -1,8 +1,9 @@
-import asyncio, os
+import asyncio
+import os
 from dotenv import load_dotenv
 load_dotenv('.env.local', override=True)
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
 url = os.getenv('TRACE_DATABASE_URL','').replace('postgresql://','postgresql+asyncpg://',1)
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import date as date_type, datetime, timezone
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -147,11 +147,59 @@ async def build_chronology(
     case_id: uuid.UUID,
     redacted_pages: list[dict],
 ) -> ChronologyResult:
-    """Build chronology from de-identified OCR text. Never touches raw PHI."""
-    from app.services.nlp import create_openmed_service
+    """Build chronology from source-linked EvidenceFacts where available.
 
-    nlp = create_openmed_service()
+    Phase 2A bridge: if EvidenceFacts exist for this case, assemble the
+    chronology from them directly (full provenance). If not, run the NLP
+    extraction pipeline and persist results as EvidenceFacts for future use.
+    """
+    from app.services.evidence import get_evidence_service
+    from app.services.nlp import create_openmed_service
+    from app.models.evidence_fact import EvidenceFact
+    from app.core.database import async_session_maker
+
+    evidence = get_evidence_service()
+
+    # Check if facts already exist for this case
+    async with async_session_maker() as session:
+        from sqlalchemy import select, func
+        count_result = await session.execute(
+            select(func.count()).select_from(EvidenceFact).where(EvidenceFact.case_id == case_id)
+        )
+        fact_count = count_result.scalar() or 0
+
     result = ChronologyResult(case_id=case_id)
+
+    if fact_count > 0:
+        facts = await evidence.get_facts_for_case(case_id)
+        result.total_entries = len(facts)
+        seen_keys: set[tuple] = set()
+
+        for fact in facts:
+            source = fact.source_location if fact.source_location else None
+            event_key = (fact.fact_date, fact.fact_text[:100], _classify_event_type(fact.fact_type))
+            entry = ChronologyEntry(
+                entry_id=fact.fact_id,
+                case_id=case_id,
+                event_date=datetime.combine(fact.fact_date, datetime.min.time()) if fact.fact_date else datetime(2000, 1, 1),
+                provider_id=fact.provider_id,
+                facility_name=None,
+                event_type=_classify_event_type(fact.fact_type),
+                clinical_description=fact.fact_text[:200],
+                source_document_id=source.document_id if source else uuid.uuid4(),
+                source_page_number=source.page_number if source else 1,
+                review_status=ReviewStatus(fact.review_status.lower()) if hasattr(ReviewStatus, fact.review_status.lower()) else ReviewStatus.UNREVIEWED,
+            )
+            if event_key in seen_keys:
+                entry.is_potential_duplicate = True
+                result.potential_duplicates += 1
+            seen_keys.add(event_key)
+            result.entries.append(entry)
+
+        return result
+
+    # Fallback: run NLP extraction and persist as EvidenceFacts
+    nlp = create_openmed_service()
     seen_events: set[tuple[datetime, str, EventType]] = set()
 
     for page in redacted_pages:
@@ -161,16 +209,15 @@ async def build_chronology(
 
         ner_result = await nlp.extract_clinical_entities(text)
         page_date = _extract_date(text)
-        
+
         for entity in ner_result.entities:
             event_date = _extract_date(entity.text) or page_date
-            quality_flags: list[str] = []
             if event_date is None:
-                quality_flags.append("DATE_NOT_FOUND")
                 continue
             provider_id = page.get("provider_id")
             event_type = _classify_event_type(entity.label)
             clinical = entity.text[:500]
+            doc_id = page.get("document_id", str(uuid.uuid4()))
 
             event_key = (event_date.replace(second=0, microsecond=0), entity.text[:100], event_type) if event_date else None
             entry = ChronologyEntry(
@@ -181,7 +228,7 @@ async def build_chronology(
                 facility_name=page.get("facility_name"),
                 event_type=event_type,
                 clinical_description=clinical,
-                source_document_id=uuid.UUID(page.get("document_id", str(uuid.uuid4()))),
+                source_document_id=uuid.UUID(doc_id) if isinstance(doc_id, str) else doc_id,
                 source_page_number=page.get("page_number", 1),
             )
 
@@ -193,6 +240,16 @@ async def build_chronology(
             result.entries.append(entry)
 
     result.total_entries = len(result.entries)
+
+    # Persist extracted facts as EvidenceFacts for future provenance
+    if redacted_pages and result.entries:
+        try:
+            await evidence.extract_facts_from_pages(case_id, redacted_pages)
+            await evidence.detect_contradictions(case_id)
+            await evidence.generate_missing_evidence_signals(case_id)
+        except Exception:
+            pass
+
     return result
 
 

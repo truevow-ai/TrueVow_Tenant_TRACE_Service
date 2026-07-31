@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     docuseal_webhook_secret: str = ""
     docuseal_signing_link_expiry_days: int = 7
 
+    # --- Email inbound (Resend) ---
+    resend_webhook_secret: str = ""
+
+    # --- RETAINER activation inbound ---
+    retainer_webhook_secret: str = ""
+
     # --- NLP backends ---
     nlp_provider_backend: str = "openmed"         # openmed | disabled
     nlp_long_context_backend: str = "disabled"     # disabled | bioclinical_modernbert (Phase 1D)

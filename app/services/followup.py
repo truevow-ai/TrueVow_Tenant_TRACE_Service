@@ -10,15 +10,13 @@ All times configurable via env vars with sensible defaults.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 
 from app.core.database import async_session_maker
 from app.core.logging import get_logger
-from app.models.case import Case
 from app.models.provider import Provider
-from app.models.record_request import RecordRequest
 from app.services.cover_sheet import CoverSheetGenerator
 from app.services.fax import create_fax_service
 
