@@ -1,10 +1,10 @@
-# TRACE — Treatment Record Acquisition and Chronology Engine
+# TRACE — Client Engagement and Case Readiness
 
-TrueVow's second-stage pipeline product: **INTAKE → TRACE → SETTLE** (Capture → Build → Protect).
-TRACE automates medical-record retrieval and builds a source-cited treatment chronology for
-retainer-converted personal-injury cases, with the attorney in control at four checkpoints.
+TRACE takes an approved prospect through engagement, signature, Matter activation, evidence collection, treatment tracking, records development, and case readiness.
 
-> Status: **Phases 1A-1D COMPLETE, Phase 1E active.** Portal integration built, 60/60 tests passing.
+TrueVow's four-product suite: **INTAKE → TRACE → SETTLE → COMMAND**.
+
+> Status: **Phase 2A complete.** 68 tests passing, 42 tables on Supabase, webhook spine operational.
 
 ## Stack
 

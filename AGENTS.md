@@ -52,14 +52,14 @@ python ../TrueVow_Shared_Orchestration/orchestrator.py dispatch "<user's request
 
 | Field | Value |
 |-------|-------|
-| **Service name** | TRACE (Treatment Record Acquisition and Chronology Engine) |
-| **Pipeline position** | INTAKE → **TRACE** → SETTLE (second stage) |
+| **Service name** | TRACE — Client Engagement and Case Readiness |
+| **Pipeline position** | INTAKE → **TRACE** → SETTLE → COMMAND |
 | **Port** | 3036 |
 | **Owner** | Yasha |
 | **Clerk domain** | App 3 (TrueVow-Tenants) — external law firm users |
 | **Database** | Supabase Postgres: cnbzuiuyppzrygxllgxj (production project) |
 | **PHI store** | Separate Postgres schema (trace_phi), AES-256-GCM encryption |
-| **Status** | Phases 1A-1D COMPLETE. Phase 1E (portal) active. 60/60 tests passing. |
+| **Status** | Phases 1A-1E COMPLETE. Phase 2A (evidence, ontology, contracts) deployed. 68/68 tests passing. |
 
 ## Quick Start (for any agent)
 
