@@ -201,3 +201,122 @@ class TestGoldenFixture:
         assert "authority_class_registry" in FROZEN_CONTRACTS
         assert "ontology_registry" in FROZEN_CONTRACTS
         assert FROZEN_CONTRACTS["event_envelope"] == "1.0.1"
+
+    def test_verifier_rejects_missing_headers(self):
+        """Must reject when any required header is absent."""
+        import os
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = GOLDEN_KEY_ID
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+
+        from app.shared.webhook_auth import VerifyStatus, WebhookVerifier
+
+        verifier = WebhookVerifier(tolerance_seconds=999999999)
+
+        result = verifier.verify(None, GOLDEN_TIMESTAMP, GOLDEN_HMAC,
+                                  GOLDEN_METHOD, GOLDEN_PATH, GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.MISSING_HEADERS
+
+        result = verifier.verify(GOLDEN_KEY_ID, None, GOLDEN_HMAC,
+                                  GOLDEN_METHOD, GOLDEN_PATH, GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.MISSING_HEADERS
+
+        result = verifier.verify(GOLDEN_KEY_ID, GOLDEN_TIMESTAMP, None,
+                                  GOLDEN_METHOD, GOLDEN_PATH, GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.MISSING_HEADERS
+
+    def test_verifier_rejects_unknown_key(self):
+        """Must reject unknown key IDs."""
+        import os
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = GOLDEN_KEY_ID
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+
+        from app.shared.webhook_auth import VerifyStatus, WebhookVerifier
+
+        verifier = WebhookVerifier(tolerance_seconds=999999999)
+        result = verifier.verify("unknown_key", GOLDEN_TIMESTAMP, GOLDEN_HMAC,
+                                  GOLDEN_METHOD, GOLDEN_PATH, GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.UNKNOWN_KEY
+
+    def test_verifier_rejects_malformed_timestamp(self):
+        """Must reject non-integer timestamps."""
+        import os
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = GOLDEN_KEY_ID
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+
+        from app.shared.webhook_auth import VerifyStatus, WebhookVerifier
+
+        verifier = WebhookVerifier(tolerance_seconds=999999999)
+        result = verifier.verify(GOLDEN_KEY_ID, "not_a_number", GOLDEN_HMAC,
+                                  GOLDEN_METHOD, GOLDEN_PATH, GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.INVALID_SIGNATURE
+
+    def test_verifier_rejects_expired_timestamp(self):
+        """Must reject timestamps outside tolerance window."""
+        import os
+        import time
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = GOLDEN_KEY_ID
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+
+        from app.shared.webhook_auth import VerifyStatus, WebhookVerifier
+
+        verifier = WebhookVerifier(tolerance_seconds=300)
+        expired = str(int(time.time()) - 600)
+        result = verifier.verify(GOLDEN_KEY_ID, expired, GOLDEN_HMAC,
+                                  GOLDEN_METHOD, GOLDEN_PATH, GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.EXPIRED_TIMESTAMP
+
+    def test_verifier_rejects_wrong_method(self):
+        """Must reject different HTTP method."""
+        import os
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = GOLDEN_KEY_ID
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+
+        from app.shared.webhook_auth import VerifyStatus, WebhookVerifier
+
+        verifier = WebhookVerifier(tolerance_seconds=999999999)
+        result = verifier.verify(GOLDEN_KEY_ID, GOLDEN_TIMESTAMP, GOLDEN_HMAC,
+                                  "GET", GOLDEN_PATH, GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.INVALID_SIGNATURE
+
+    def test_verifier_rejects_trailing_slash(self):
+        """Must reject trailing-slash path mismatch."""
+        import os
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = GOLDEN_KEY_ID
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+
+        from app.shared.webhook_auth import VerifyStatus, WebhookVerifier
+
+        verifier = WebhookVerifier(tolerance_seconds=999999999)
+        result = verifier.verify(GOLDEN_KEY_ID, GOLDEN_TIMESTAMP, GOLDEN_HMAC,
+                                  GOLDEN_METHOD, GOLDEN_PATH + "/", GOLDEN_RAW_BODY)
+        assert result.status == VerifyStatus.INVALID_SIGNATURE
+
+    def test_idempotency_rejects_replay(self):
+        """is_replay must return True for already-consumed event_id."""
+        import os
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = GOLDEN_KEY_ID
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+
+        from app.shared.webhook_auth import WebhookVerifier
+
+        verifier = WebhookVerifier(tolerance_seconds=999999999)
+        assert not verifier.is_replay(GOLDEN_EVENT_ID)
+        verifier.mark_consumed(GOLDEN_EVENT_ID)
+        assert verifier.is_replay(GOLDEN_EVENT_ID)
+
+    def test_secondary_key_rotation(self):
+        """EnvKeyStore must resolve keys from TRUEVOW_WEBHOOK_SECONDARY_KEYS."""
+        import os
+        import json
+        os.environ["TRUEVOW_WEBHOOK_KEY_ID"] = "tv-primary"
+        os.environ["TRUEVOW_WEBHOOK_SECRET"] = GOLDEN_KEY_SECRET
+        os.environ["TRUEVOW_WEBHOOK_SECONDARY_KEYS"] = json.dumps([
+            {"key_id": "tv-secondary", "secret": "secondary-secret-for-testing"}
+        ])
+
+        from app.shared.webhook_auth import EnvKeyStore
+
+        store = EnvKeyStore()
+        assert store.get_secret("tv-primary") == GOLDEN_KEY_SECRET
+        assert store.get_secret("tv-secondary") == "secondary-secret-for-testing"
+        assert store.get_secret("unknown-key") is None

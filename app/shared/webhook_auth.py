@@ -93,6 +93,13 @@ class EnvKeyStore:
 class WebhookVerifier:
     """HMAC signature verifier for cross-service webhooks.
 
+    Replay protection operates at two levels:
+      1. Timestamp tolerance (300s default) — rejects expired/future requests
+      2. Idempotency ID — rejects replayed canonical identifiers (event_id,
+         command_id) regardless of timestamp. Separate from timestamp check
+         because a valid request can be replayed within the tolerance window.
+         Store consumed IDs and return previous result where appropriate.
+
     Usage:
         verifier = WebhookVerifier(key_store=EnvKeyStore(), tolerance_seconds=300)
 
@@ -107,6 +114,12 @@ class WebhookVerifier:
 
         if result.status != VerifyStatus.OK:
             raise HTTPException(401, result.detail)
+
+        # Separately enforce idempotency via canonical event_id
+        event_id = payload.get("event_id")
+        if verifier.is_replay(event_id):
+            return previous_result
+        verifier.mark_consumed(event_id)
     """
 
     def __init__(
@@ -116,7 +129,15 @@ class WebhookVerifier:
     ):
         self._key_store = key_store or EnvKeyStore()
         self._tolerance_seconds = tolerance_seconds
-        self._seen_timestamps: set[tuple[str, str]] = set()
+        self._consumed_ids: set[str] = set()
+
+    def is_replay(self, idempotency_id: str) -> bool:
+        """Check if a canonical identifier was already consumed."""
+        return idempotency_id in self._consumed_ids
+
+    def mark_consumed(self, idempotency_id: str) -> None:
+        """Mark a canonical identifier as consumed."""
+        self._consumed_ids.add(idempotency_id)
 
     def verify(
         self,
@@ -152,11 +173,6 @@ class WebhookVerifier:
         if age > self._tolerance_seconds:
             return VerifyResult(VerifyStatus.EXPIRED_TIMESTAMP,
                                f"Timestamp is {age}s old (tolerance: {self._tolerance_seconds}s)")
-
-        replay_key = (key_id, timestamp_str)
-        if replay_key in self._seen_timestamps:
-            return VerifyResult(VerifyStatus.EXPIRED_TIMESTAMP, "Replay detected: timestamp already used")
-        self._seen_timestamps.add(replay_key)
 
         body_hash = hashlib.sha256(raw_body).hexdigest()
         canonical_string = f"{timestamp_str}:{method}:{path}:{body_hash}"

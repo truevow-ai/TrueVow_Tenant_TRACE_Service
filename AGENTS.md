@@ -198,11 +198,44 @@ TRACE Backend (:3036, FastAPI)
 - Operational DB only sees `client_token` (opaque UUID)
 - Decryption only via `app/services/phi_store.py::get_client()`
 
-**Schema migrations needed (NOT YET RUN on Supabase):**
-```sql
-ALTER TABLE providers ALTER COLUMN extraction_confidence TYPE VARCHAR(32);
-ALTER TABLE audit_log ALTER COLUMN action TYPE VARCHAR(255);
+**Schema migrations applied:**
+- Migration `0017` — 31 new tables (evidence, ontology, client portal, workflow). Already applied to Supabase.
+- Migration `0008` — trace schema + RLS. Already applied.
+- Legacy ALTER TABLE for extraction_confidence and audit_log still pending (non-blocking).
+
+## Webhook Authentication (Frozen Contract: WebhookSignature v1.0)
+
+TRACE verifies incoming webhooks using HMAC-SHA256 signatures per the frozen `WebhookSignature v1.0` contract:
+
+| Caller → TRACE | Canonical Path | Idempotency Key |
+|---|---|---|
+| SaaS Admin | `POST /api/v1/trace/webhooks/matter-activated` | `event_id` |
+
+TRACE does not currently send signed webhooks to other services. If it does, use the same contract with `app/shared/webhook_auth.py`.
+
+### Env vars
 ```
+TRUEVOW_WEBHOOK_KEY_ID=tv-primary
+TRUEVOW_WEBHOOK_SECRET=<shared-secret>
+# Optional rotation:
+TRUEVOW_WEBHOOK_SECONDARY_KEYS=[{"key_id":"tv-secondary","secret":"..."}]
+```
+
+### Replay protection
+Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVerifier.is_replay()` / `mark_consumed()`. Never rely on timestamp alone.
+
+### Authoritative contract locations
+- `app/shared/webhook_auth.py` — Python verifier + signing
+- `app/shared/contracts.py` — frozen contract versions
+- `tests/test_golden_fixture.py` — 17 golden fixture tests
+- `../TrueVow_Documentation/TrueVow_Ontology_Registry_v1.0.yaml` — canonical ontology
+
+### Implementation rules for TRACE
+- Hash exact raw request bytes (never re-serialize parsed JSON)
+- Canonical path: `/api/v1/trace/webhooks/matter-activated` (no trailing slash, no query string)
+- Constant-time comparison on signatures
+- Never log secrets, full signatures, or confidential body contents
+- Development, staging, and production must use different secrets
 
 ## Common Pitfalls & Fixes
 

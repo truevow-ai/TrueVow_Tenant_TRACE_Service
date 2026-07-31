@@ -247,6 +247,9 @@ async def matter_activated(
     if not event_id:
         raise HTTPException(status_code=400, detail="Missing event_id")
 
+    if verifier.is_replay(event_id):
+        return {"status": "duplicate", "event_id": event_id, "detail": "Event already processed"}
+
     try:
         event_uuid = uuid.UUID(event_id)
     except (ValueError, TypeError):
@@ -295,6 +298,8 @@ async def matter_activated(
 
     handler = get_matter_activation_handler()
     result = await handler.handle(event_uuid, activation)
+
+    verifier.mark_consumed(event_id)
 
     if result.accepted:
         event_store = get_event_store()
