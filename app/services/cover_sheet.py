@@ -9,10 +9,6 @@ from __future__ import annotations
 
 from io import BytesIO
 
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
-
 
 class CoverSheetGenerator:
     """Generate HIPAA-compliant fax cover sheets for medical record requests."""
@@ -36,6 +32,10 @@ class CoverSheetGenerator:
         hipaa_auth_pdf: bytes | None = None,
     ) -> BytesIO:
         from datetime import datetime, timezone
+
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.units import inch
+        from reportlab.pdfgen import canvas
 
         buffer = BytesIO()
         c = canvas.Canvas(buffer, pagesize=letter)
