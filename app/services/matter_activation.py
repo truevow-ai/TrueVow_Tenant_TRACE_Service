@@ -97,6 +97,7 @@ class ActivationPayload:
     authority_class: str = "FIRM-POLICY"
     authority_record_id: uuid.UUID | None = None
     occurred_at: datetime | None = None
+    selected_trace_plan_code: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -285,6 +286,7 @@ class MatterActivationHandler:
             sol_deadline=payload.sol_deadline,
             sol_urgency=payload.sol_urgency,
             sol_table_version="2026-07",
+            trace_plan_code=payload.selected_trace_plan_code or "trace_complete_v1",
             hipaa_auth_status="PENDING",
             provider_list_status="DRAFT",
             case_stage="INITIALIZATION",

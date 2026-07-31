@@ -281,6 +281,7 @@ async def matter_activated(
         authority_class=payload.get("authority_class", "FIRM-POLICY"),
         authority_record_id=uuid.UUID(payload["authority_record_id"]) if payload.get("authority_record_id") else None,
         occurred_at=None,
+        selected_trace_plan_code=inner.get("selected_trace_plan_code"),
         metadata=inner.get("metadata", {}),
     )
 
