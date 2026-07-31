@@ -215,10 +215,11 @@ TRACE does not currently send signed webhooks to other services. If it does, use
 
 ### Env vars
 ```
-TRUEVOW_WEBHOOK_KEY_ID=tv-primary
-TRUEVOW_WEBHOOK_SECRET=<shared-secret>
-# Optional rotation:
-TRUEVOW_WEBHOOK_SECONDARY_KEYS=[{"key_id":"tv-secondary","secret":"..."}]
+# Per-link key (NOT a global shared secret):
+TRUEVOW_WEBHOOK_KEY_ID=tv-saas-admin-to-trace-v1
+TRUEVOW_WEBHOOK_SECRET=<per-environment-secret>
+# Optional rotation (also per-link):
+TRUEVOW_WEBHOOK_SECONDARY_KEYS=[{"key_id":"tv-saas-admin-to-trace-v2","secret":"..."}]
 ```
 
 ### Replay protection
@@ -236,6 +237,7 @@ Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVe
 - Constant-time comparison on signatures
 - Never log secrets, full signatures, or confidential body contents
 - Development, staging, and production must use different secrets
+- Per-link keys only: SaaS Admin's key for TRACE must differ from INTAKE→RETAINER or RETAINER→SaaS Admin keys
 
 ## Common Pitfalls & Fixes
 
