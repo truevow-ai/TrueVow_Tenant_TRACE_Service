@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 from app.api.v1 import router as v1_router  # noqa: E402
 from app.core.config import settings  # noqa: E402
+from app.core.database import async_session_maker  # noqa: E402
 from app.core.errors import install_error_handlers  # noqa: E402
 from app.core.logging import get_logger  # noqa: E402
 from app.core.middleware import audit_middleware, correlation_id_middleware  # noqa: E402
@@ -76,6 +77,72 @@ async def health() -> dict:
         "service": "trace",
         "version": settings.app_version,
         "environment": settings.environment,
+    }
+
+
+CRITICAL_TABLES = [
+    "cases", "documents", "providers", "event_nodes",
+    "evidence_facts", "source_locations", "fact_versions",
+    "contradiction_pairs", "missing_evidence_signals",
+    "business_events", "trace_client_access_projections",
+    "jurisdiction_profiles", "consent_records", "policy_records",
+]
+
+REQUIRED_MIGRATION_REVISION = "0017"
+
+
+@app.get("/ready", tags=["health"])
+async def readiness() -> dict:
+    """Schema readiness check for staging/production deployment.
+
+    /health  — process is alive
+    /ready   — database reachable, migrations current, critical tables exist
+
+    When /ready fails, the service should not be placed behind live traffic.
+    """
+    from sqlalchemy import text
+
+    checks: dict[str, str] = {}
+    try:
+        async with async_session_maker() as session:
+            # 1. Database connection
+            result = await session.execute(text("SELECT 1"))
+            row = result.scalar()
+            checks["database"] = "ok" if row == 1 else "fail"
+
+            # 2. Migration revision
+            try:
+                rev_result = await session.execute(
+                    text("SELECT version_num FROM alembic_version")
+                )
+                current_rev = rev_result.scalar()
+                checks["migration"] = (
+                    "ok" if current_rev == REQUIRED_MIGRATION_REVISION
+                    else f"mismatch: {current_rev} != {REQUIRED_MIGRATION_REVISION}"
+                )
+            except Exception:
+                checks["migration"] = "fail: alembic_version not found"
+
+            # 3. Critical tables
+            for table in CRITICAL_TABLES:
+                try:
+                    await session.execute(text(f"SELECT 1 FROM {table} LIMIT 0"))
+                    checks[f"table:{table}"] = "ok"
+                except Exception:
+                    checks[f"table:{table}"] = "fail: not found"
+
+    except Exception as e:
+        checks["database"] = f"fail: {e}"
+
+    failed = {k: v for k, v in checks.items() if v != "ok" and not str(v).startswith("ok")}
+    ready = len(failed) == 0
+
+    return {
+        "status": "ready" if ready else "not_ready",
+        "service": "trace",
+        "required_migration": REQUIRED_MIGRATION_REVISION,
+        "checks": checks,
+        "failed": list(failed.keys()) if failed else [],
     }
 
 
