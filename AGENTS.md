@@ -292,7 +292,10 @@ python -c "import jwt; print(jwt.encode({'sub':'t','firm_id':'11111111-1111-4111
 
 | Session | What was done | State |
 |---------|--------------|-------|
-| Jul 31 | Portal access ownership model corrected | DONE |
+| Jul 31 | Billing plan code + entitlement capability gates added | DONE |
+| Jul 31 | Webhook timestamp aligned to milliseconds (WebhookSignature v1.0 contract) | DONE |
+| Jul 31 | Migration 0018: trace_plan_code column on cases, /ready returns 'ready' | DONE |
+| Jul 31 | Portal access ownership model corrected (ClientAccessProjection is temporary mirror) | DONE |
 | Jul 31 | Contract normalization: EventEnvelope 1.0.1, 9 evidence refs, HMAC auth, global/tenant separation | DONE |
 | Jul 31 | MatterActivation handler: 8 rejection conditions, idempotent case creation | DONE |
 | Jul 30 | Phase 2A schema migration: 31 tables applied to Supabase (migration 0017) | DONE |
