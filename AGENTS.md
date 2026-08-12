@@ -1,4 +1,4 @@
-# TrueVow_Tenant_TRACE_Service — Agent Rules
+# TrueVow_Tenant_TRACE_Service â€” Agent Rules
 
 # Agent Onboarding Preamble
 # Drop this into any service's AGENTS.md to wire it into the ecosystem.
@@ -10,32 +10,32 @@
 
 **Format for all writebacks:** "<service>: <specific action taken> | <result/outcome> | <what you learned> | <next step or blocker>"
 
-### Start of Session — Activate Service
+### Start of Session â€” Activate Service
 ```
 python ../TrueVow_Shared_Orchestration/orchestrator.py sync-memory
 python ../TrueVow_Shared_Orchestration/orchestrator.py scan-services
 python ../TrueVow_Shared_Orchestration/orchestrator.py agent-checkin start "TRACE: <specific task> | resuming from <previous state> | goal: <what success looks like>"
 ```
 
-### During Work — Log Learnings
+### During Work â€” Log Learnings
 ```
 python ../TrueVow_Shared_Orchestration/memory.py remember <category> "<title>" "<content>" --importance N
 ```
 Categories: architecture, pattern, decision, dependency, convention, bug, context, todo, relationship
 Importance: 10 = critical blocker, 8 = important decision, 5 = observation
 
-### End of Session — Writeback Results
+### End of Session â€” Writeback Results
 ```
 python ../TrueVow_Shared_Orchestration/orchestrator.py agent-checkin done "TRACE: <what was accomplished> | outcome: <result> | learned: <key insight> | next: <what remains>" --status DONE
 python ../TrueVow_Shared_Orchestration/orchestrator.py push-memory
 ```
 
-### If Blocked — Alert Immediately
+### If Blocked â€” Alert Immediately
 ```
 python ../TrueVow_Shared_Orchestration/orchestrator.py agent-checkin blocked "TRACE: <specific blocker> | attempted: <what you tried> | need: <what will unblock>"
 ```
 
-### Before Any Work — Route the Task
+### Before Any Work â€” Route the Task
 ```
 python ../TrueVow_Shared_Orchestration/orchestrator.py dispatch "<user's request>"
 ```
@@ -52,11 +52,11 @@ python ../TrueVow_Shared_Orchestration/orchestrator.py dispatch "<user's request
 
 | Field | Value |
 |-------|-------|
-| **Service name** | TRACE — Client Engagement and Case Readiness |
-| **Pipeline position** | INTAKE → **TRACE** → SETTLE → COMMAND |
+| **Service name** | TRACE â€” Client Engagement and Case Readiness |
+| **Pipeline position** | INTAKE â†’ **TRACE** â†’ SETTLE â†’ COMMAND |
 | **Port** | 3036 |
 | **Owner** | Yasha |
-| **Clerk domain** | App 3 (TrueVow-Tenants) — external law firm users |
+| **Clerk domain** | App 3 (TrueVow-Tenants) â€” external law firm users |
 | **Database** | Supabase Postgres: cnbzuiuyppzrygxllgxj (production project) |
 | **PHI store** | Separate Postgres schema (trace_phi), AES-256-GCM encryption |
 | **Status** | Phases 1A-1E COMPLETE. Phase 2A (evidence, ontology, contracts) deployed. 68/68 tests passing. |
@@ -103,53 +103,53 @@ python -c "import jwt; print(jwt.encode({'sub':'test','firm_id':'11111111-1111-4
 ## Auth System
 
 ```
-┌──────────────────────────────────────────────────────┐
-│ DEV (AUTH_MODE=local)                                │
-│   JWT: HS256 with LOCAL_JWT_SECRET                   │
-│   Required claims: sub, firm_id, role, mfa           │
-│                                                      │
-│   generate: jwt.encode({                             │
-│     'sub':'user_id',                                 │
-│     'firm_id':'11111111-1111-4111-8111-111111111111',│
-│     'role':'attorney', 'mfa':True                    │
-│   }, SECRET, algorithm='HS256')                      │
-├──────────────────────────────────────────────────────┤
-│ PROD (AUTH_MODE=clerk)                               │
-│   JWT: RS256, verified via Clerk JWKS endpoint       │
-│   Requires: CLERK_JWKS_URL, CLERK_ISSUER, CLERK_AUDIENCE│
-│   No local JWT generation possible                   │
-└──────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ DEV (AUTH_MODE=local)                                â”‚
+â”‚   JWT: HS256 with LOCAL_JWT_SECRET                   â”‚
+â”‚   Required claims: sub, firm_id, role, mfa           â”‚
+â”‚                                                      â”‚
+â”‚   generate: jwt.encode({                             â”‚
+â”‚     'sub':'user_id',                                 â”‚
+â”‚     'firm_id':'11111111-1111-4111-8111-111111111111',â”‚
+â”‚     'role':'attorney', 'mfa':True                    â”‚
+â”‚   }, SECRET, algorithm='HS256')                      â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ PROD (AUTH_MODE=clerk)                               â”‚
+â”‚   JWT: RS256, verified via Clerk JWKS endpoint       â”‚
+â”‚   Requires: CLERK_JWKS_URL, CLERK_ISSUER, CLERK_AUDIENCEâ”‚
+â”‚   No local JWT generation possible                   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
-**Critical gotcha:** The service loads `.env.local` via `load_dotenv(override=True)` in `app/main.py`. If `.env.local` has `AUTH_MODE=clerk`, it WILL override any shell env var. To use local auth, `.env.local` MUST contain `AUTH_MODE=local`. If you change it, KILL AND RESTART the uvicorn process — the change only takes effect on startup.
+**Critical gotcha:** The service loads `.env.local` via `load_dotenv(override=True)` in `app/main.py`. If `.env.local` has `AUTH_MODE=clerk`, it WILL override any shell env var. To use local auth, `.env.local` MUST contain `AUTH_MODE=local`. If you change it, KILL AND RESTART the uvicorn process â€” the change only takes effect on startup.
 
 ## Architecture Summary
 
 ```
 Portal (:3031, Next.js)
-   │  /api/trace/[...path]  ← universal proxy (generates HS256 JWT)
-   │  Clerk App3 auth (browser cookies)
-   ▼
+   â”‚  /api/trace/[...path]  â† universal proxy (generates HS256 JWT)
+   â”‚  Clerk App3 auth (browser cookies)
+   â–¼
 TRACE Backend (:3036, FastAPI)
-   │
-   ├── /api/v1/trace/cases              → cases.py
-   ├── /api/v1/trace/cases/{id}/providers → providers.py
-   ├── /api/v1/trace/cases/{id}/requests  → requests.py (fax)
-   ├── /api/v1/trace/cases/{id}/documents → documents.py (upload)
-   ├── /api/v1/trace/cases/{id}/liens     → liens.py
-   ├── /api/v1/trace/cases/{id}/chronology → qa.py
-   ├── /api/v1/trace/cases/{id}/export     → qa.py
-   ├── /api/v1/trace/webhooks/*           → webhooks.py
-   └── /webhooks/docuseal/*              → signing.py
-   │
-   ├── Supabase Postgres (operational DB + PHI DB)
-   ├── Supabase Storage (trace-medical-records bucket)
-   ├── DeepSeek API (billing LLM, replaces Azure GPT-4o-mini)
-   ├── Documo (outbound fax)
-   ├── DocuSeal (e-sign, not subscribed)
-   ├── OpenMed NLP (clinical NER, regex fallback)
-   ├── NPI Registry (provider lookup)
-   └── Mistral OCR (document text extraction)
+   â”‚
+   â”œâ”€â”€ /api/v1/trace/cases              â†’ cases.py
+   â”œâ”€â”€ /api/v1/trace/cases/{id}/providers â†’ providers.py
+   â”œâ”€â”€ /api/v1/trace/cases/{id}/requests  â†’ requests.py (fax)
+   â”œâ”€â”€ /api/v1/trace/cases/{id}/documents â†’ documents.py (upload)
+   â”œâ”€â”€ /api/v1/trace/cases/{id}/liens     â†’ liens.py
+   â”œâ”€â”€ /api/v1/trace/cases/{id}/chronology â†’ qa.py
+   â”œâ”€â”€ /api/v1/trace/cases/{id}/export     â†’ qa.py
+   â”œâ”€â”€ /api/v1/trace/webhooks/*           â†’ webhooks.py
+   â””â”€â”€ /webhooks/docuseal/*              â†’ signing.py
+   â”‚
+   â”œâ”€â”€ Supabase Postgres (operational DB + PHI DB)
+   â”œâ”€â”€ Supabase Storage (trace-medical-records bucket)
+   â”œâ”€â”€ DeepSeek API (billing LLM, replaces Azure GPT-4o-mini)
+   â”œâ”€â”€ Documo (outbound fax)
+   â”œâ”€â”€ DocuSeal (e-sign, not subscribed)
+   â”œâ”€â”€ OpenMed NLP (clinical NER, regex fallback)
+   â”œâ”€â”€ NPI Registry (provider lookup)
+   â””â”€â”€ Mistral OCR (document text extraction)
 ```
 
 ## Key Files (read these first)
@@ -161,7 +161,7 @@ TRACE Backend (:3036, FastAPI)
 | `app/core/middleware.py` | Correlation ID + audit logging |
 | `app/auth/clerk.py` | JWT verification (HS256 local / Clerk RS256) |
 | `app/auth/deps.py` | AuthContext dependency for FastAPI |
-| `app/api/v1/__init__.py` | Router aggregation — all endpoints wired here |
+| `app/api/v1/__init__.py` | Router aggregation â€” all endpoints wired here |
 | `app/api/v1/routes/cases.py` | Case CRUD + SOL + PHI store |
 | `app/api/v1/routes/providers.py` | Provider CRUD + confirmation gate |
 | `app/api/v1/routes/requests.py` | Fax preview + send + cover sheets |
@@ -190,7 +190,7 @@ TRACE Backend (:3036, FastAPI)
 - Connection: Supabase Postgres at cnbzuiuyppzrygxllgxj.supabase.co
 - Tables: cases, providers, documents, event_nodes, record_requests, liens, medical_bill_line, signed_documents, upload_links, audit_log, firm_users, pipeline_audit_log
 - Firm isolation: explicit `firm_id` filter on every query + Supabase RLS in production
-- Every query MUST include `firm_id` filter — this is the multi-tenant isolation guarantee
+- Every query MUST include `firm_id` filter â€” this is the multi-tenant isolation guarantee
 
 **PHI Store (`trace_phi` schema):**
 - Separate database/schema from operational DB
@@ -199,15 +199,15 @@ TRACE Backend (:3036, FastAPI)
 - Decryption only via `app/services/phi_store.py::get_client()`
 
 **Schema migrations applied:**
-- Migration `0017` — 31 new tables (evidence, ontology, client portal, workflow). Already applied to Supabase.
-- Migration `0008` — trace schema + RLS. Already applied.
+- Migration `0017` â€” 31 new tables (evidence, ontology, client portal, workflow). Already applied to Supabase.
+- Migration `0008` â€” trace schema + RLS. Already applied.
 - Legacy ALTER TABLE for extraction_confidence and audit_log still pending (non-blocking).
 
 ## Webhook Authentication (Frozen Contract: WebhookSignature v1.0)
 
 TRACE verifies incoming webhooks using HMAC-SHA256 signatures per the frozen `WebhookSignature v1.0` contract:
 
-| Caller → TRACE | Canonical Path | Idempotency Key |
+| Caller â†’ TRACE | Canonical Path | Idempotency Key |
 |---|---|---|
 | SaaS Admin | `POST /api/v1/trace/webhooks/matter-activated` | `event_id` |
 
@@ -226,10 +226,10 @@ TRUEVOW_WEBHOOK_SECONDARY_KEYS=[{"key_id":"tv-saas-admin-to-trace-v2","secret":"
 Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVerifier.is_replay()` / `mark_consumed()`. Never rely on timestamp alone.
 
 ### Authoritative contract locations
-- `app/shared/webhook_auth.py` — Python verifier + signing
-- `app/shared/contracts.py` — frozen contract versions
-- `tests/test_golden_fixture.py` — 17 golden fixture tests
-- `../TrueVow_Documentation/TrueVow_Ontology_Registry_v1.0.yaml` — canonical ontology
+- `app/shared/webhook_auth.py` â€” Python verifier + signing
+- `app/shared/contracts.py` â€” frozen contract versions
+- `tests/test_golden_fixture.py` â€” 17 golden fixture tests
+- `../TrueVow_Documentation/TrueVow_Ontology_Registry_v1.0.yaml` â€” canonical ontology
 
 ### Implementation rules for TRACE
 - Hash exact raw request bytes (never re-serialize parsed JSON)
@@ -237,7 +237,7 @@ Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVe
 - Constant-time comparison on signatures
 - Never log secrets, full signatures, or confidential body contents
 - Development, staging, and production must use different secrets
-- Per-link keys only: SaaS Admin's key for TRACE must differ from INTAKE→RETAINER or RETAINER→SaaS Admin keys
+- Per-link keys only: SaaS Admin's key for TRACE must differ from INTAKEâ†’RETAINER or RETAINERâ†’SaaS Admin keys
 
 ## Common Pitfalls & Fixes
 
@@ -257,14 +257,14 @@ Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVe
 ## Case Lifecycle (7 Stages)
 
 ```
-PENDING_SIGNATURE → INITIALIZATION → RETRIEVAL → PROCESSING → CHRONOLOGY_READY → ATTORNEY_REVIEW → DEMAND_READY
+PENDING_SIGNATURE â†’ INITIALIZATION â†’ RETRIEVAL â†’ PROCESSING â†’ CHRONOLOGY_READY â†’ ATTORNEY_REVIEW â†’ DEMAND_READY
 ```
 
 **Gates (case cannot advance past these without passing):**
-1. **HIPAA signed** — DocuSeal webhook or force-advance via DB
-2. **Checkpoint 1** — Provider list must have 1+ CONFIRMED, then locked
-3. **Checkpoint 2** — Fax requests sent to all CONFIRMED providers
-4. **Demand-ready gate** — All PRIORITY flags must be attorney-annotated
+1. **HIPAA signed** â€” DocuSeal webhook or force-advance via DB
+2. **Checkpoint 1** â€” Provider list must have 1+ CONFIRMED, then locked
+3. **Checkpoint 2** â€” Fax requests sent to all CONFIRMED providers
+4. **Demand-ready gate** â€” All PRIORITY flags must be attorney-annotated
 
 ## Truth Commands
 
@@ -313,7 +313,7 @@ python -c "import jwt; print(jwt.encode({'sub':'t','firm_id':'11111111-1111-4111
 | Jul 23 | /llm-test endpoint wired (was dead code) | DONE |
 | Jul 19-23 | E2E testing: 60/60 tests passed | DONE |
 | Jul 20 | BAA research: DeepSeek no BAA, Anthropic + OpenAI API do | CONTEXT |
-| Jul 19 | extraction_confidence VARCHAR(10→32) model fix | DONE |
+| Jul 19 | extraction_confidence VARCHAR(10â†’32) model fix | DONE |
 
 ## Remaining TODOs
 
