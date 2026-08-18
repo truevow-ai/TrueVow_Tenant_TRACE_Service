@@ -87,15 +87,8 @@ def seed_synthetic_case(case_ref: str = "SYNTHETIC-001") -> str:
         print(f"  TRACE SYNTHETIC JOURNEY SEEDER — {case_ref}")
         print("=" * 60)
 
-        # Ensure tables exist (synthetic seeder runs standalone, not via pytest conftest)
-        from app.core.database import engine, phi_engine
-        from app.models import Base
-        from app.models.client import PHIBase
-
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        async with phi_engine.begin() as conn:
-            await conn.run_sync(PHIBase.metadata.create_all)
+        # Schema must already exist via ``alembic upgrade head`` (FND001-INV-07);
+        # this seeder never creates schema from SQLAlchemy metadata.
 
         firm_id = SYNTHETIC_ATTORNEY["firm_id"]
 

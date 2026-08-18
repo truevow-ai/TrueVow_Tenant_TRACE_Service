@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Edge case verification: run the 12-step journey against every failure mode."""
+"""Edge case verification: run the 12-step journey against every failure mode.
+
+Requires a designated non-production Postgres brought to the expected
+revision with ``alembic upgrade head`` before running (FND001-INV-07) —
+schema is never created from SQLAlchemy metadata.
+"""
 
 from __future__ import annotations
 
@@ -17,11 +22,9 @@ from datetime import date
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.core.database import async_session_maker, engine, phi_engine
+from app.core.database import async_session_maker
 from app.main import app
-from app.models import Base
 from app.models.case import Case
-from app.models.client import PHIBase
 from app.models.event_node import EventNode
 from app.models.provider import Provider
 from tests.conftest import auth_header
@@ -47,11 +50,6 @@ def _fail(label: str, detail: str = "") -> None:
 
 async def run_edge_cases():
     global PASSED, FAILED
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    async with phi_engine.begin() as conn:
-        await conn.run_sync(PHIBase.metadata.create_all)
 
     transport = ASGITransport(app=app)
     h_a = auth_header(firm_id=FIRM_A)

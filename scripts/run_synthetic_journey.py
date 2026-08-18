@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Run the synthetic journey step-by-step and validate each step."""
+"""Run the synthetic journey step-by-step and validate each step.
+
+Requires a designated non-production Postgres brought to the expected
+revision with ``alembic upgrade head`` before running (FND001-INV-07) —
+schema is never created from SQLAlchemy metadata.
+"""
 
 from __future__ import annotations
 
@@ -18,11 +23,9 @@ from datetime import datetime, timezone
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.core.database import async_session_maker, engine, phi_engine
+from app.core.database import async_session_maker
 from app.main import app
-from app.models import Base
 from app.models.case import Case
-from app.models.client import PHIBase
 from app.models.lien import Lien
 from app.models.medical_bill import MedicalBillLine
 from app.models.provider import Provider
@@ -35,12 +38,6 @@ FIRM = "11111111-1111-4111-8111-111111111111"
 async def run_journey():
     transport = ASGITransport(app=app)
     headers = auth_header(firm_id=FIRM)
-
-    # ── Seed directly ──
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    async with phi_engine.begin() as conn:
-        await conn.run_sync(PHIBase.metadata.create_all)
 
     firm_id = uuid.UUID(FIRM)
     client_token = await store_client(
