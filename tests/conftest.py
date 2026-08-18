@@ -1,49 +1,112 @@
 """Test configuration.
 
-Runs the whole suite against in-memory SQLite (the platform's ``conftest``
-pattern) so Phase 1A acceptance criteria are verifiable without live cloud.
-Environment is set BEFORE importing the app so settings pick it up.
+TRACE persists only to Supabase/PostgreSQL (INV-TRACE-001). There is no
+SQLite test path.
+
+- Pure unit tests may run without any database: the app imports with a
+  placeholder Postgres URL (engines are lazy — no connection is attempted
+  unless a test touches the database).
+- Persistence/integration tests require ``TRACE_TEST_PG_URL`` (a designated
+  NON-PRODUCTION Postgres). The schema is created with Alembic
+  (``alembic upgrade head``), never ``metadata.create_all()``, and all tables
+  are truncated between tests.
 """
 
 from __future__ import annotations
 
 import datetime
 import os
+import subprocess
+import sys
 import uuid
 
 # --- Environment must be set before importing app modules ---
-os.environ["ENVIRONMENT"] = "development"
+os.environ["ENVIRONMENT"] = "test"
 os.environ["AUTH_MODE"] = "local"
 os.environ["LOCAL_JWT_SECRET"] = "test-secret-at-least-32-bytes-long-000"
-os.environ["TRACE_DATABASE_URL"] = ""
-os.environ["TRACE_PHI_DATABASE_URL"] = ""
+
+TEST_PG_URL = os.environ.get("TRACE_TEST_PG_URL") or os.environ.get("TRACE_DATABASE_URL") or ""
+_PLACEHOLDER_URL = "postgresql+asyncpg://unit:unit@127.0.0.1:1/unit"  # never connectable
+
+if TEST_PG_URL:
+    os.environ["TRACE_DATABASE_URL"] = TEST_PG_URL
+    os.environ["TRACE_PHI_DATABASE_URL"] = os.environ.get("TRACE_PHI_DATABASE_URL") or TEST_PG_URL
+else:
+    os.environ["TRACE_DATABASE_URL"] = _PLACEHOLDER_URL
+    os.environ["TRACE_PHI_DATABASE_URL"] = _PLACEHOLDER_URL
 os.environ.pop("DATABASE_URL", None)
 os.environ.pop("PHI_DATABASE_URL", None)
 
 import jwt  # noqa: E402
+import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
 from app.core.config import settings  # noqa: E402
 from app.core.database import async_session_maker, engine, phi_engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Base  # noqa: E402
 from app.models.audit import AuditLog  # noqa: E402
 from app.models.case import Case  # noqa: E402
-from app.models.client import PHIBase  # noqa: E402
+
+DB_AVAILABLE = bool(TEST_PG_URL)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _migrate_schema():
+    """Bring the designated non-production Postgres to the expected revision.
+
+    Uses Alembic — acceptance schema is never created from SQLAlchemy
+    metadata (FND001-INV-07). Skips silently only when no test database is
+    configured (pure unit runs); any DB-touching test then fails loudly.
+    """
+    if not DB_AVAILABLE:
+        return
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.exit(
+            f"alembic upgrade head failed against the designated test database.\n"
+            f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+
+
+async def _truncate_schema_tables() -> None:
+    """Truncate every table in the trace and trace_phi schemas (test DB only)."""
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "DO $$ DECLARE t record; BEGIN "
+            "FOR t IN SELECT tablename FROM pg_tables "
+            "WHERE schemaname = 'trace' AND tablename <> 'alembic_version' LOOP "
+            "EXECUTE 'TRUNCATE TABLE trace.' || quote_ident(t.tablename) || ' CASCADE'; "
+            "END LOOP; END $$;"
+        ))
+    async with phi_engine.begin() as conn:
+        await conn.execute(text(
+            "DO $$ DECLARE t record; BEGIN "
+            "FOR t IN SELECT tablename FROM pg_tables "
+            "WHERE schemaname = 'trace_phi' LOOP "
+            "EXECUTE 'TRUNCATE TABLE trace_phi.' || quote_ident(t.tablename) || ' CASCADE'; "
+            "END LOOP; END $$;"
+        ))
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def _setup_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    async with phi_engine.begin() as conn:
-        await conn.run_sync(PHIBase.metadata.create_all)
+    if DB_AVAILABLE:
+        # Drop pooled asyncpg connections so each test creates connections in
+        # its own event loop (module-level engines + per-test loops are safe
+        # this way regardless of pytest-asyncio loop scoping).
+        await engine.dispose()
+        await phi_engine.dispose()
+        await _truncate_schema_tables()
     yield
-    async with phi_engine.begin() as conn:
-        await conn.run_sync(PHIBase.metadata.drop_all)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    if DB_AVAILABLE:
+        await engine.dispose()
+        await phi_engine.dispose()
 
 
 @pytest_asyncio.fixture

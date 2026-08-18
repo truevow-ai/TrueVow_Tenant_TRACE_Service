@@ -70,7 +70,8 @@ python ../TrueVow_Shared_Orchestration/orchestrator.py dispatch "<user's request
 # 2. Ensure .env.local has:
 #    AUTH_MODE=local
 #    LOCAL_JWT_SECRET=test-secret-at-least-32-bytes-long-000
-#    TRACE_DATABASE_URL=postgresql://...  (or leave empty for SQLite)
+#    TRACE_DATABASE_URL=postgresql://...  (REQUIRED — Supabase/Postgres only, no SQLite)
+#    TRACE_PHI_DATABASE_URL=postgresql://...
 #    LLM_SERVICE_PROVIDER=deepseek_api
 #    DEEPSEEK_API_KEY=sk-...
 
@@ -245,12 +246,12 @@ Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVe
 |---------|-----------|-----|
 | "Invalid or expired session" on all API calls | `.env.local` has AUTH_MODE=clerk but you're in dev | Change to `AUTH_MODE=local`, KILL uvicorn, restart |
 | Portal proxy returns 401 | LOCAL_JWT_SECRET mismatch between portal and TRACE | Both must use `test-secret-at-least-32-bytes-long-000` |
-| "no such table: cases" in tests | TRACE_DATABASE_URL not set to empty for SQLite | Set `TRACE_DATABASE_URL=""` before importing app |
+| "no such table: cases" in tests | Persistence tests run without a migrated test DB | Set `TRACE_TEST_PG_URL` to a designated non-production Postgres; schema comes from `alembic upgrade head`, never `create_all` |
 | LLM test returns internal error | DEEPSEEK_API_KEY not in os.environ | `load_dotenv` must run before the app starts |
 | Cases list empty in portal | No `trace` feature in billing response | Billing fallback now includes trace. Ensure billing proxy is reachable. |
 | Upload works but document not found | Supabase Storage bucket not created | Create bucket `trace-medical-records` via Supabase dashboard or API |
 | python-dotenv parse error | Invalid line in .env.local (line 491 was `@DOCUMENTATION`) | Fixed. Check for lines without `=` sign. |
-| `str object has no attribute hex` | Passing string case_id to UUID column in SQLite | Always wrap with `uuid.UUID(case_id)` in raw SQL |
+| `str object has no attribute hex` | Passing string case_id to UUID column in Postgres | Always wrap with `uuid.UUID(case_id)` in raw SQL |
 | Wrong firm can read cases | `get_case` had no firm_id filter (pre-Jul 24) | Fixed. Now requires `Case.firm_id == firm_uuid`. |
 | Export returns TypeError | qa.py called export with wrong params | Fixed. Now passes strings from case model. |
 

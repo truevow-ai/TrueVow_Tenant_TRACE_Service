@@ -1,6 +1,6 @@
 """PHI encryption round-trip test against real Supabase PostgreSQL.
 
-Not run as part of the SQLite test suite. Run manually:
+Not run as part of the automated suite. Run manually:
   python tests/run_phi_roundtrip_pg.py
 """
 

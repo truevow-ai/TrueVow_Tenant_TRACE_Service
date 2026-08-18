@@ -43,8 +43,24 @@ _OPERATIONAL_TABLES = [
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS trace;")
 
+    # Location-aware move: when the connection's search_path is ``trace`` (the
+    # documented runtime config), migrations 0001-0003 already created these
+    # tables in the trace schema and there is nothing in public to move.
     for table_name in _OPERATIONAL_TABLES:
-        op.execute(f"ALTER TABLE public.{table_name} SET SCHEMA trace;")
+        op.execute(
+            f"""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = '{table_name}'
+                ) THEN
+                    EXECUTE 'ALTER TABLE public.{table_name} SET SCHEMA trace;';
+                END IF;
+            END
+            $$;
+            """
+        )
 
     op.create_table(
         "pipeline_audit_log",

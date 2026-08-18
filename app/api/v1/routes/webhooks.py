@@ -74,7 +74,7 @@ async def fax_status(
     async with async_session_maker() as session:
         # Webhook is system-level; RLS GUC is not set here (no attorney session),
         # so this session must run without RLS. On Postgres, this endpoint uses a
-        # dedicated system role in production; in tests (SQLite) RLS is absent.
+        # dedicated system role in production.
         row = (
             await session.execute(
                 select(RecordRequest).where(RecordRequest.fax_transmission_id == str(transmission_id))

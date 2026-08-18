@@ -44,8 +44,15 @@ see `docs/00-Planning/TRACE-Agent-Coding-Instructions.md`.
 
 ## Tests
 
+TRACE persists only to Supabase/PostgreSQL — there is no SQLite test path.
+
 ```bash
-pytest            # runs against in-memory SQLite; no cloud required
+# Pure unit tests (no database required)
+pytest tests/test_db_config.py tests/test_sol.py tests/test_golden_fixture.py
+
+# Persistence/integration tests (designated NON-PRODUCTION Postgres required)
+$env:TRACE_TEST_PG_URL="postgresql://..." ; pytest
+
 ruff check .
 mypy app
 ```

@@ -1,10 +1,10 @@
 """Async database engine, session factory, and the request-scoped session dep.
 
-On Postgres, the per-request session sets the RLS GUCs
+TRACE persists only to Supabase/PostgreSQL (INV-TRACE-001). Engines are
+Postgres async engines only; there is no SQLite branch and no fallback
+persistence backend. The per-request session sets the RLS GUCs
 (``app.current_tenant_id`` / ``app.current_user_id`` / ``app.current_user_role``)
-so Row-Level Security enforces firm isolation as defense-in-depth. When no
-database is configured the engine falls back to in-memory SQLite (dev/test),
-where isolation is enforced by application-level filtering.
+so Row-Level Security enforces firm isolation as defense-in-depth.
 """
 
 from __future__ import annotations
@@ -14,20 +14,12 @@ from collections.abc import AsyncGenerator
 from fastapi import Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.config import settings
 
 
 def _create_engine(url: str, *, search_path: str = ""):
-    if url.startswith("sqlite"):
-        return create_async_engine(
-            url,
-            poolclass=StaticPool,
-            connect_args={"check_same_thread": False},
-            future=True,
-        )
     connect_args: dict = {}
     if "pooler.supabase.com" in url:
         connect_args["statement_cache_size"] = 0
@@ -43,23 +35,22 @@ phi_engine = _create_engine(settings.effective_phi_database_url, search_path="tr
 phi_session_maker = async_sessionmaker(phi_engine, expire_on_commit=False, class_=AsyncSession)
 
 
-def is_postgres() -> bool:
-    return engine.dialect.name == "postgresql"
-
-
 async def get_db(
     ctx: AuthContext = Depends(get_current_context),
 ) -> AsyncGenerator[AsyncSession, None]:
-    """Yield a firm-scoped session. Requires an authenticated caller."""
+    """Yield a firm-scoped session. Requires an authenticated caller.
+
+    Always Postgres: the RLS GUCs are set unconditionally so isolation is
+    enforced by Row-Level Security on every request.
+    """
     async with async_session_maker() as session:
-        if is_postgres():
-            await session.execute(
-                text(f"SET LOCAL app.current_tenant_id = '{ctx.firm_id}'")
-            )
-            await session.execute(
-                text(f"SET LOCAL app.current_user_id = '{ctx.user_id}'")
-            )
-            await session.execute(
-                text(f"SET LOCAL app.current_user_role = '{ctx.role or ''}'")
-            )
+        await session.execute(
+            text(f"SET LOCAL app.current_tenant_id = '{ctx.firm_id}'")
+        )
+        await session.execute(
+            text(f"SET LOCAL app.current_user_id = '{ctx.user_id}'")
+        )
+        await session.execute(
+            text(f"SET LOCAL app.current_user_role = '{ctx.role or ''}'")
+        )
         yield session

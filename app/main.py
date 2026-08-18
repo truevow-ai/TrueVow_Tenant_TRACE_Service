@@ -34,10 +34,9 @@ async def lifespan(app: FastAPI):
             "AUTH_MODE=local is forbidden in production. Set AUTH_MODE=clerk and CLERK_JWKS_URL."
         )
     logger.info(
-        "TRACE starting: env=%s auth_mode=%s db=%s",
+        "TRACE starting: env=%s auth_mode=%s db=postgres",
         settings.environment,
         settings.auth_mode,
-        "postgres" if (settings.trace_database_url) else "sqlite(fallback)",
     )
     yield
     logger.info("TRACE shutting down")

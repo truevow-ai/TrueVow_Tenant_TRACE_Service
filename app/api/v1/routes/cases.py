@@ -29,7 +29,7 @@ async def list_cases(
     """List cases for the authenticated firm only.
 
     Isolation is enforced two ways: RLS (``app.current_tenant_id``) on Postgres,
-    and the explicit ``firm_id`` filter here (which also protects the SQLite path).
+    and the explicit ``firm_id`` filter here as application-layer defense-in-depth.
     """
     try:
         firm_uuid = uuid.UUID(ctx.firm_id)

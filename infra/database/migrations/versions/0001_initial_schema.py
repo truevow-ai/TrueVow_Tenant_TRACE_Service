@@ -29,6 +29,14 @@ _FIRM_SCOPED_TABLES = ("cases", "providers", "documents", "chronology_entries", 
 
 
 def upgrade() -> None:
+    # Descriptive revision ids (e.g. 0004_trace_schema_and_pipeline_audit_log)
+    # exceed Alembic's default 32-char version_num column. Widening here makes
+    # the chain runnable end-to-end by Alembic; it is a safe no-op when the
+    # column is already wider.
+    op.execute(
+        "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255);"
+    )
+
     op.create_table(
         "cases",
         sa.Column("case_id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),

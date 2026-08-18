@@ -3,7 +3,7 @@
 Encrypting in the application (rather than pgcrypto in the DB) keeps the key out
 of the database entirely — it comes from KMS/Secrets Manager — which matches the
 spec's "keys managed via KMS, never stored in the database" requirement and stays
-portable across the operational Postgres and the SQLite test fallback.
+portable across the operational Postgres and the dedicated PHI database.
 
 Ciphertext is stored as base64-encoded Text in ``trace_phi.clients``.
 Wire format: ``nonce(12) || ciphertext+tag``, then base64-encoded.

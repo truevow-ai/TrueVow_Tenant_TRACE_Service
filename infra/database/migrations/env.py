@@ -1,8 +1,10 @@
 """Alembic migration environment (async).
 
 Resolves the database URL from ``TRACE_DATABASE_URL`` / ``DATABASE_URL`` and
-runs migrations against Supabase Postgres. Not exercised by the test suite
-(tests build the schema from SQLAlchemy metadata on SQLite).
+runs migrations against Supabase Postgres. This is the ONLY acceptance-schema
+path: tests never build the schema from SQLAlchemy metadata
+(``metadata.create_all``) — persistence tests run migrations and require a
+designated non-production Postgres.
 """
 
 from __future__ import annotations
@@ -17,8 +19,10 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.models import Base
 
-# Load .env.local so TRACE_DATABASE_URL is available without manual export
-load_dotenv(".env.local", override=True)
+# Load .env.local WITHOUT override: an explicitly exported TRACE_DATABASE_URL
+# (e.g. the designated non-production test database) must always win, so a
+# checked-out local file can never redirect migrations at a production database.
+load_dotenv(".env.local", override=False)
 
 config = context.config
 if config.config_file_name:

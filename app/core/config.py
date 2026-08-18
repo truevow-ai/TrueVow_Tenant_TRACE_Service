@@ -28,12 +28,14 @@ class Settings(BaseSettings):
     clerk_jwks_cache_ttl: int = 3600
 
     # --- Databases ---
-    # Operational DB (Supabase Postgres). If unset, falls back to in-memory SQLite.
+    # Operational DB (Supabase Postgres). REQUIRED — TRACE persists only to
+    # Supabase/PostgreSQL (INV-TRACE-001). Missing or non-Postgres
+    # configuration fails closed; there is no other persistence backend.
     trace_database_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("TRACE_DATABASE_URL", "DATABASE_URL"),
     )
-    # Separate PHI store (Supabase Postgres, pgcrypto AES-256).
+    # Separate PHI store (Supabase Postgres, pgcrypto AES-256). REQUIRED.
     trace_phi_database_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("TRACE_PHI_DATABASE_URL", "PHI_DATABASE_URL"),
@@ -93,29 +95,44 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
 
+    @staticmethod
+    def _require_postgres(url: str | None, name: str) -> str:
+        """Resolve a database URL to async-SQLAlchemy Postgres form.
+
+        Fail closed (INV-TRACE-001 / INV-TRACE-002): missing configuration or
+        any non-PostgreSQL scheme raises — SQLite is never substituted.
+        """
+        if not url:
+            raise RuntimeError(
+                f"{name} is not configured. TRACE persists only to "
+                "Supabase/PostgreSQL and refuses to start without a database."
+            )
+        normalized = url
+        if normalized.startswith("postgres://"):
+            normalized = "postgresql://" + normalized[len("postgres://"):]
+        if normalized.startswith("postgresql://"):
+            normalized = normalized.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif normalized.startswith("postgresql+asyncpg://"):
+            pass
+        else:
+            raise RuntimeError(
+                f"{name} is not a PostgreSQL URL. TRACE supports only "
+                "Supabase/PostgreSQL (postgresql:// or postgresql+asyncpg://)."
+            )
+        return normalized
+
     @property
     def effective_database_url(self) -> str:
-        """Runtime operational DB URL as an async SQLAlchemy URL.
+        """Runtime operational DB URL as an async SQLAlchemy Postgres URL.
 
-        Falls back to in-memory SQLite when no database is configured, so the
-        service boots (and the test suite runs) without live cloud.
+        Required. Raises RuntimeError when absent or non-Postgres.
         """
-        url = self.trace_database_url
-        if not url:
-            return "sqlite+aiosqlite:///:memory:"
-        if url.startswith("postgresql://") and "+asyncpg" not in url:
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return url
+        return self._require_postgres(self.trace_database_url, "TRACE_DATABASE_URL")
 
     @property
     def effective_phi_database_url(self) -> str:
-        """Runtime PHI-store DB URL (separate instance). SQLite fallback for tests."""
-        url = self.trace_phi_database_url
-        if not url:
-            return "sqlite+aiosqlite:///:memory:"
-        if url.startswith("postgresql://") and "+asyncpg" not in url:
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return url
+        """Runtime PHI-store DB URL. Required; same fail-closed rule."""
+        return self._require_postgres(self.trace_phi_database_url, "TRACE_PHI_DATABASE_URL")
 
 
 settings = Settings()

@@ -36,6 +36,6 @@ pyarrow>=14.0.0
 # Dev / test
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
-aiosqlite>=0.20.0
+pypdf>=4.0.0
 ruff>=0.6.0
 mypy>=1.11.0
