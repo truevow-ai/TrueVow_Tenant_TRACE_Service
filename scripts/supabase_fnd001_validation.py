@@ -34,7 +34,10 @@ import asyncio
 import os
 import subprocess
 import sys
+from pathlib import Path
 from urllib.parse import urlsplit
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def mask(url: str) -> str:
@@ -108,16 +111,9 @@ def main() -> None:
         print(f"trace schema tables: {trace_count}")
         print(f"trace_phi schema tables: {phi_count}")
 
-    asyncio.run(collect())
-
-    for cmd in (["alembic", "current"], ["alembic", "heads"]):
-        result = subprocess.run([sys.executable, "-m", *cmd], capture_output=True, text=True)
-        print(f"$ alembic {' '.join(cmd[1:])} -> exit {result.returncode}")
-        print(result.stdout.strip() or result.stderr.strip())
-
-    from httpx import ASGITransport, AsyncClient
-
     async def http_checks() -> None:
+        from httpx import ASGITransport, AsyncClient
+
         transport = ASGITransport(app=fastapi_app)
         async with AsyncClient(transport=transport, base_url="http://validation") as client:
             ready = await client.get("/ready")
@@ -125,7 +121,19 @@ def main() -> None:
         print(f"GET /ready  -> {ready.status_code} {ready.text[:400]}")
         print(f"GET /health -> {health.status_code} {health.text[:200]}")
 
-    asyncio.run(http_checks())
+    async def run_all() -> None:
+        # Single event loop: asyncpg engine connections are loop-affine.
+        await collect()
+        await http_checks()
+        await engine.dispose()
+        await phi_engine.dispose()
+
+    asyncio.run(run_all())
+
+    for cmd in (["alembic", "current"], ["alembic", "heads"]):
+        result = subprocess.run([sys.executable, "-m", *cmd], capture_output=True, text=True)
+        print(f"$ alembic {' '.join(cmd[1:])} -> exit {result.returncode}")
+        print(result.stdout.strip() or result.stderr.strip())
 
     print("=== VALIDATION COLLECTED (no DDL, no writes were performed) ===")
     print("next: compare version_num to expected head; capture output for Gate 001.")
