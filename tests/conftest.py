@@ -85,14 +85,24 @@ def _migrate_schema():
     Uses Alembic — acceptance schema is never created from SQLAlchemy
     metadata (FND001-INV-07). Runs ONLY when both safety guards are present;
     otherwise no destructive operation occurs and pure unit tests proceed.
+
+    The subprocess environment is pinned to the designated test URLs: any
+    later dotenv loading (e.g. a checked-out .env.local via app.main) must
+    never redirect migrations at a different database.
     """
     if not GUARDS_OK:
         print(_NOTICE)
         return
+    subprocess_env = {**os.environ}
+    subprocess_env["TRACE_DATABASE_URL"] = TEST_PG_URL
+    subprocess_env["TRACE_PHI_DATABASE_URL"] = TEST_PHI_PG_URL or TEST_PG_URL
+    subprocess_env.pop("DATABASE_URL", None)
+    subprocess_env.pop("PHI_DATABASE_URL", None)
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         capture_output=True,
         text=True,
+        env=subprocess_env,
     )
     if result.returncode != 0:
         pytest.exit(

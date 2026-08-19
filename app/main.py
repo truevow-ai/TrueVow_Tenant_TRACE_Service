@@ -87,7 +87,7 @@ CRITICAL_TABLES = [
     "jurisdiction_profiles", "consent_records", "policy_records",
 ]
 
-REQUIRED_MIGRATION_REVISION = "0018"
+REQUIRED_MIGRATION_REVISION = "0020_event_node_flag_priority"
 
 
 @app.get("/ready", tags=["health"])

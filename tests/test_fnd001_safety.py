@@ -23,10 +23,13 @@ import sys
 
 import pytest
 
-# A REAL, reachable test database (docker bridge) — used to prove the harness
-# ignores TRACE_DATABASE_URL and honors only the guarded TRACE_TEST_PG_URL.
-_REACHABLE_TEST_DB = os.environ.get(
-    "TRACE_FND001_SAFETY_DB_URL", "postgresql://trace:trace@172.17.0.3:5432/trace_test"
+# A REAL, reachable test database — used to prove the harness ignores
+# TRACE_DATABASE_URL and honors only the guarded TRACE_TEST_PG_URL.
+# Prefer the outer run's designated test DB; never hardcode a bridge IP.
+_REACHABLE_TEST_DB = (
+    os.environ.get("TRACE_FND001_SAFETY_DB_URL")
+    or os.environ.get("TRACE_TEST_PG_URL")
+    or "postgresql://trace:trace@127.0.0.1:1/trace_test"
 )
 
 _TARGET = ["tests/test_phi_store.py"]

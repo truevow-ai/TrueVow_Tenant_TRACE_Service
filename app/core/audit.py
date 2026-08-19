@@ -7,6 +7,7 @@ opaque identifiers — never PII.
 
 from __future__ import annotations
 
+import ipaddress
 import uuid
 from typing import Any
 
@@ -25,6 +26,22 @@ def _to_uuid(value: Any) -> uuid.UUID | None:
     try:
         return uuid.UUID(str(value))
     except (ValueError, AttributeError, TypeError):
+        return None
+
+
+def normalize_ip(value: Any) -> str | None:
+    """Normalize a client address to canonical INET text; invalid -> NULL.
+
+    The audit_log.ip_address column is PostgreSQL INET (DRIFT-01). Anything
+    that is not a valid IPv4/IPv6 address must never reach the column — it
+    becomes NULL, preserving the append-only audit write.
+    """
+    if value is None:
+        return None
+    try:
+        return str(ipaddress.ip_address(value))
+    except ValueError:
+        logger.warning("Discarding non-IP client address from audit entry")
         return None
 
 
@@ -50,7 +67,7 @@ async def write_audit(
         resource_id=_to_uuid(resource_id),
         case_id=_to_uuid(case_id),
         firm_id=_to_uuid(firm_id),
-        ip_address=ip_address,
+        ip_address=normalize_ip(ip_address),
         user_agent=(user_agent or "")[:1024] or None,
         correlation_id=correlation_id,
         details=details,

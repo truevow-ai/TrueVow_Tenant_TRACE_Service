@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -28,7 +29,10 @@ class AuditLog(Base):
     resource_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     case_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     firm_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
-    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    # DRIFT-01: the physical column is PostgreSQL INET (migration 0001); the
+    # ORM must agree. IPv4 and IPv6 are both supported; invalid/missing values
+    # are normalized to NULL by the audit writer.
+    ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
     correlation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     timestamp: Mapped[datetime] = mapped_column(

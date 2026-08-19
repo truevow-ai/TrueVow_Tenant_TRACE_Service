@@ -52,6 +52,7 @@ async def audit_middleware(request: Request, call_next):
     if ctx is not None and request.url.path.startswith(_API_PREFIX):
         try:
             resource_type = _resource_type(request.url.path)
+            resolved_ip = _resolve_ip(request)
             await write_audit(
                 actor_id=ctx.user_id,
                 actor_type="ATTORNEY",
@@ -60,7 +61,7 @@ async def audit_middleware(request: Request, call_next):
                 # Collection-level actions are scoped to the firm.
                 resource_id=ctx.firm_id,
                 firm_id=ctx.firm_id,
-                ip_address=str(request.client.host) if request.client else None,
+                ip_address=str(resolved_ip) if resolved_ip else None,
                 user_agent=request.headers.get("user-agent"),
                 correlation_id=getattr(request.state, "correlation_id", None),
                 details={"status_code": response.status_code},
