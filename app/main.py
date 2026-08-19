@@ -11,7 +11,11 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
-load_dotenv(".env.local", override=True)
+# Exported environment variables ALWAYS win over .env.local (Gate 001A-R1).
+# A checked-out local file must never be able to redirect the runtime at a
+# different database or mutate a parent process's environment in a way that
+# leaks into child processes (e.g. Alembic migration subprocesses).
+load_dotenv(".env.local", override=False)
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
@@ -87,7 +91,7 @@ CRITICAL_TABLES = [
     "jurisdiction_profiles", "consent_records", "policy_records",
 ]
 
-REQUIRED_MIGRATION_REVISION = "0020_event_node_flag_priority"
+REQUIRED_MIGRATION_REVISION = "0021_flag_priority_guard"
 
 
 @app.get("/ready", tags=["health"])

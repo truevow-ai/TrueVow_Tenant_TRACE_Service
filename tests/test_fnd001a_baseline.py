@@ -161,3 +161,126 @@ async def test_provider_confidence_longest_values_persist():
         )).scalars().all()
     assert "HIGH_CONFIDENCE" in rows
     assert "NEEDS_CLIENT_CONFIRMATION" in rows
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FND-001A-R1 blocker 2: event_nodes.flag_priority physical contract
+# (migration 0021_flag_priority_guard)
+# ─────────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_flag_priority_omitted_orm_value_persists_as_priority():
+    from app.models.event_node import EventNode
+
+    async with async_session_maker() as session:
+        case = Case(
+            client_token=uuid.uuid4(),
+            firm_id=uuid.uuid4(),
+            intake_record_id=uuid.uuid4(),
+            incident_date=datetime.date(2026, 1, 15),
+            jurisdiction_state="CA",
+        )
+        session.add(case)
+        await session.flush()
+        node = EventNode(
+            case_id=case.case_id,
+            flag_type="TREATMENT_GAP",
+            system_description="omitted priority",
+        )
+        session.add(node)
+        await session.commit()
+        node_id = node.node_id
+
+    async with async_session_maker() as session:
+        row = (await session.execute(
+            select(EventNode.flag_priority).where(EventNode.node_id == node_id)
+        )).scalar_one()
+    assert row == "PRIORITY"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("priority", ["PRIORITY", "ADVISORY", "INFORMATIONAL"])
+async def test_flag_priority_explicit_values_persist(priority):
+    from app.models.event_node import EventNode
+
+    async with async_session_maker() as session:
+        case = Case(
+            client_token=uuid.uuid4(),
+            firm_id=uuid.uuid4(),
+            intake_record_id=uuid.uuid4(),
+            incident_date=datetime.date(2026, 1, 15),
+            jurisdiction_state="CA",
+        )
+        session.add(case)
+        await session.flush()
+        node = EventNode(
+            case_id=case.case_id,
+            flag_type="TREATMENT_GAP",
+            flag_priority=priority,
+            system_description="explicit priority",
+        )
+        session.add(node)
+        await session.commit()
+        node_id = node.node_id
+
+    async with async_session_maker() as session:
+        row = (await session.execute(
+            select(EventNode.flag_priority).where(EventNode.node_id == node_id)
+        )).scalar_one()
+    assert row == priority
+
+
+@pytest.mark.asyncio
+async def test_flag_priority_null_rejected_at_db_level():
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    async with async_session_maker() as session:
+        case = Case(
+            client_token=uuid.uuid4(),
+            firm_id=uuid.uuid4(),
+            intake_record_id=uuid.uuid4(),
+            incident_date=datetime.date(2026, 1, 15),
+            jurisdiction_state="CA",
+        )
+        session.add(case)
+        await session.commit()
+        case_id = case.case_id
+
+    async with async_session_maker() as session:
+        with pytest.raises(IntegrityError):
+            await session.execute(text(
+                "INSERT INTO event_nodes (node_id, case_id, flag_type, "
+                "system_description, flag_priority) VALUES "
+                "(gen_random_uuid(), :c, 'TREATMENT_GAP', 'x', NULL)"
+            ), {"c": case_id})
+            await session.commit()
+        await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_flag_priority_invalid_value_rejected_at_db_level():
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    async with async_session_maker() as session:
+        case = Case(
+            client_token=uuid.uuid4(),
+            firm_id=uuid.uuid4(),
+            intake_record_id=uuid.uuid4(),
+            incident_date=datetime.date(2026, 1, 15),
+            jurisdiction_state="CA",
+        )
+        session.add(case)
+        await session.commit()
+        case_id = case.case_id
+
+    async with async_session_maker() as session:
+        with pytest.raises(IntegrityError):
+            await session.execute(text(
+                "INSERT INTO event_nodes (node_id, case_id, flag_type, "
+                "system_description, flag_priority) VALUES "
+                "(gen_random_uuid(), :c, 'TREATMENT_GAP', 'x', 'NOT_A_PRIORITY')"
+            ), {"c": case_id})
+            await session.commit()
+        await session.rollback()
