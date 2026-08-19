@@ -50,12 +50,20 @@ TRACE persists only to Supabase/PostgreSQL — there is no SQLite test path.
 # Pure unit tests (no database required)
 pytest tests/test_db_config.py tests/test_sol.py tests/test_golden_fixture.py
 
-# Persistence/integration tests (designated NON-PRODUCTION Postgres required)
-$env:TRACE_TEST_PG_URL="postgresql://..." ; pytest
+# Persistence/integration tests — BOTH safety guards required:
+# the designated NON-PRODUCTION Postgres URL and the destructive latch.
+$env:TRACE_TEST_PG_URL="postgresql://..."           # designated non-production DB
+$env:TRACE_TEST_PHI_PG_URL="postgresql://..."       # optional separate PHI test DB
+$env:TRACE_TEST_ALLOW_DESTRUCTIVE="TRUEVOW_NONPROD_TEST_DB"
+pytest
 
 ruff check .
 mypy app
 ```
+
+`TRACE_DATABASE_URL` / `DATABASE_URL` / `TRACE_PHI_DATABASE_URL` are NEVER
+treated as test databases, and no migration or table truncation runs unless
+both `TRACE_TEST_PG_URL` and the destructive latch are present.
 
 ## Phase 1A acceptance gate (must pass before Phase 1B)
 

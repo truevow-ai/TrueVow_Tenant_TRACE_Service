@@ -1,19 +1,35 @@
 #!/usr/bin/env python3
 """Edge case verification: run the 12-step journey against every failure mode.
 
-Requires a designated non-production Postgres brought to the expected
-revision with ``alembic upgrade head`` before running (FND001-INV-07) —
-schema is never created from SQLAlchemy metadata.
+Requires BOTH safety guards before importing the application:
+
+    TRACE_TEST_PG_URL=<designated non-production Postgres>
+    TRACE_TEST_ALLOW_DESTRUCTIVE=TRUEVOW_NONPROD_TEST_DB
+
+and the schema must be at ``alembic upgrade head`` (FND001-INV-07) — schema
+is never created from SQLAlchemy metadata, and runtime/production database
+URLs are never used.
+
+The environment is prepared before application imports (E402 is intentional
+in this bootstrap, matching app/main.py).
 """
+
+# ruff: noqa: E402
 
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 os.environ["AUTH_MODE"] = "local"
 os.environ["LOCAL_JWT_SECRET"] = "test-secret-at-least-32-bytes-long-000"
-os.environ.pop("TRACE_DATABASE_URL", None)
-os.environ.pop("DATABASE_URL", None)
+
+from scripts._support import auth_header, require_test_database  # noqa: E402
+
+require_test_database()
 
 import asyncio
 import uuid
@@ -27,7 +43,6 @@ from app.main import app
 from app.models.case import Case
 from app.models.event_node import EventNode
 from app.models.provider import Provider
-from tests.conftest import auth_header
 
 FIRM_A = "11111111-1111-4111-8111-111111111111"
 FIRM_B = "22222222-2222-4222-8222-222222222222"

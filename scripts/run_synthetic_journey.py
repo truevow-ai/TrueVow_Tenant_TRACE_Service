@@ -1,20 +1,36 @@
 #!/usr/bin/env python3
 """Run the synthetic journey step-by-step and validate each step.
 
-Requires a designated non-production Postgres brought to the expected
-revision with ``alembic upgrade head`` before running (FND001-INV-07) —
-schema is never created from SQLAlchemy metadata.
+Requires BOTH safety guards before importing the application:
+
+    TRACE_TEST_PG_URL=<designated non-production Postgres>
+    TRACE_TEST_ALLOW_DESTRUCTIVE=TRUEVOW_NONPROD_TEST_DB
+
+and the schema must be at ``alembic upgrade head`` (FND001-INV-07) — schema
+is never created from SQLAlchemy metadata, and runtime/production database
+URLs are never used.
+
+The environment is prepared before application imports (E402 is intentional
+in this bootstrap, matching app/main.py).
 """
+
+# ruff: noqa: E402
 
 from __future__ import annotations
 
 # Environment must be set BEFORE importing app modules
 import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 os.environ["AUTH_MODE"] = "local"
 os.environ["LOCAL_JWT_SECRET"] = "test-secret-at-least-32-bytes-long-000"
-os.environ.pop("TRACE_DATABASE_URL", None)
-os.environ.pop("DATABASE_URL", None)
+
+from scripts._support import auth_header, require_test_database  # noqa: E402
+
+require_test_database()
 
 import asyncio
 import uuid
@@ -30,7 +46,6 @@ from app.models.lien import Lien
 from app.models.medical_bill import MedicalBillLine
 from app.models.provider import Provider
 from app.services.phi_store import store_client
-from tests.conftest import auth_header
 
 FIRM = "11111111-1111-4111-8111-111111111111"
 

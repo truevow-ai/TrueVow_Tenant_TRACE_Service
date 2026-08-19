@@ -246,7 +246,7 @@ Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVe
 |---------|-----------|-----|
 | "Invalid or expired session" on all API calls | `.env.local` has AUTH_MODE=clerk but you're in dev | Change to `AUTH_MODE=local`, KILL uvicorn, restart |
 | Portal proxy returns 401 | LOCAL_JWT_SECRET mismatch between portal and TRACE | Both must use `test-secret-at-least-32-bytes-long-000` |
-| "no such table: cases" in tests | Persistence tests run without a migrated test DB | Set `TRACE_TEST_PG_URL` to a designated non-production Postgres; schema comes from `alembic upgrade head`, never `create_all` |
+| "no such table: cases" in tests | Persistence tests run without a migrated test DB | Set `TRACE_TEST_PG_URL` to a designated non-production Postgres AND `TRACE_TEST_ALLOW_DESTRUCTIVE=TRUEVOW_NONPROD_TEST_DB`; schema comes from `alembic upgrade head`, never `create_all` |
 | LLM test returns internal error | DEEPSEEK_API_KEY not in os.environ | `load_dotenv` must run before the app starts |
 | Cases list empty in portal | No `trace` feature in billing response | Billing fallback now includes trace. Ensure billing proxy is reachable. |
 | Upload works but document not found | Supabase Storage bucket not created | Create bucket `trace-medical-records` via Supabase dashboard or API |

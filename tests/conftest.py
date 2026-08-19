@@ -6,10 +6,17 @@ SQLite test path.
 - Pure unit tests may run without any database: the app imports with a
   placeholder Postgres URL (engines are lazy — no connection is attempted
   unless a test touches the database).
-- Persistence/integration tests require ``TRACE_TEST_PG_URL`` (a designated
-  NON-PRODUCTION Postgres). The schema is created with Alembic
-  (``alembic upgrade head``), never ``metadata.create_all()``, and all tables
-  are truncated between tests.
+- Persistence/integration tests require BOTH safety guards:
+
+    TRACE_TEST_PG_URL=<designated non-production Postgres>       (mandatory)
+    TRACE_TEST_ALLOW_DESTRUCTIVE=TRUEVOW_NONPROD_TEST_DB         (mandatory)
+    TRACE_TEST_PHI_PG_URL=<separate PHI test DB>                 (optional)
+
+  Only when both guards are present does the harness run ``alembic upgrade
+  head`` (never ``metadata.create_all()``) and truncate tables between
+  tests. ``TRACE_DATABASE_URL`` / ``DATABASE_URL`` / ``TRACE_PHI_DATABASE_URL``
+  are NEVER treated as test databases — a runtime database URL can never be
+  destroyed by this harness (FND001-INV-08).
 """
 
 from __future__ import annotations
@@ -25,15 +32,26 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["AUTH_MODE"] = "local"
 os.environ["LOCAL_JWT_SECRET"] = "test-secret-at-least-32-bytes-long-000"
 
-TEST_PG_URL = os.environ.get("TRACE_TEST_PG_URL") or os.environ.get("TRACE_DATABASE_URL") or ""
+TEST_PG_URL = os.environ.get("TRACE_TEST_PG_URL", "")
+TEST_PHI_PG_URL = os.environ.get("TRACE_TEST_PHI_PG_URL", "")
+_DESTRUCTIVE_TOKEN = "TRUEVOW_NONPROD_TEST_DB"
+DESTRUCTIVE_CONFIRMED = (
+    os.environ.get("TRACE_TEST_ALLOW_DESTRUCTIVE", "") == _DESTRUCTIVE_TOKEN
+)
+GUARDS_OK = bool(TEST_PG_URL) and DESTRUCTIVE_CONFIRMED
+
 _PLACEHOLDER_URL = "postgresql+asyncpg://unit:unit@127.0.0.1:1/unit"  # never connectable
 
-if TEST_PG_URL:
+# The app engines are built from TRACE_DATABASE_URL / TRACE_PHI_DATABASE_URL.
+# The harness maps ONLY the explicitly-designated test database into those
+# names — never a runtime DB URL from the environment.
+if GUARDS_OK:
     os.environ["TRACE_DATABASE_URL"] = TEST_PG_URL
-    os.environ["TRACE_PHI_DATABASE_URL"] = os.environ.get("TRACE_PHI_DATABASE_URL") or TEST_PG_URL
+    os.environ["TRACE_PHI_DATABASE_URL"] = TEST_PHI_PG_URL or TEST_PG_URL
 else:
     os.environ["TRACE_DATABASE_URL"] = _PLACEHOLDER_URL
     os.environ["TRACE_PHI_DATABASE_URL"] = _PLACEHOLDER_URL
+# Legacy aliases are dropped so no other source can win during resolution.
 os.environ.pop("DATABASE_URL", None)
 os.environ.pop("PHI_DATABASE_URL", None)
 
@@ -49,7 +67,15 @@ from app.main import app  # noqa: E402
 from app.models.audit import AuditLog  # noqa: E402
 from app.models.case import Case  # noqa: E402
 
-DB_AVAILABLE = bool(TEST_PG_URL)
+DB_AVAILABLE = GUARDS_OK
+
+_NOTICE = (
+    "TRACE-FND-001 SAFETY: persistence tests require BOTH "
+    "TRACE_TEST_PG_URL (designated non-production Postgres) and "
+    "TRACE_TEST_ALLOW_DESTRUCTIVE=TRUEVOW_NONPROD_TEST_DB. "
+    "Until both are set, no migration and no truncation will run; "
+    "database-touching tests fail with connection errors."
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -57,10 +83,11 @@ def _migrate_schema():
     """Bring the designated non-production Postgres to the expected revision.
 
     Uses Alembic — acceptance schema is never created from SQLAlchemy
-    metadata (FND001-INV-07). Skips silently only when no test database is
-    configured (pure unit runs); any DB-touching test then fails loudly.
+    metadata (FND001-INV-07). Runs ONLY when both safety guards are present;
+    otherwise no destructive operation occurs and pure unit tests proceed.
     """
-    if not DB_AVAILABLE:
+    if not GUARDS_OK:
+        print(_NOTICE)
         return
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
@@ -96,7 +123,7 @@ async def _truncate_schema_tables() -> None:
 
 @pytest_asyncio.fixture(autouse=True)
 async def _setup_db():
-    if DB_AVAILABLE:
+    if GUARDS_OK:
         # Drop pooled asyncpg connections so each test creates connections in
         # its own event loop (module-level engines + per-test loops are safe
         # this way regardless of pytest-asyncio loop scoping).
@@ -104,7 +131,7 @@ async def _setup_db():
         await phi_engine.dispose()
         await _truncate_schema_tables()
     yield
-    if DB_AVAILABLE:
+    if GUARDS_OK:
         await engine.dispose()
         await phi_engine.dispose()
 

@@ -4,6 +4,13 @@
 Seeds ONE complete synthetic case with attorney, client, providers,
 documents, billing, and lien. All data is SYNTHETIC — no real PHI.
 
+Requires BOTH safety guards before importing the application:
+
+    TRACE_TEST_PG_URL=<designated non-production Postgres>
+    TRACE_TEST_ALLOW_DESTRUCTIVE=TRUEVOW_NONPROD_TEST_DB
+
+and the schema must be at ``alembic upgrade head`` (FND001-INV-07).
+
 Usage:
     python scripts/seed_synthetic_journey.py [--case-ref SYNTHETIC-001]
 
@@ -20,6 +27,10 @@ from io import BytesIO
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts._support import require_test_database  # noqa: E402
+
+require_test_database()
 
 # Synthetic data constants
 SYNTHETIC_ATTORNEY = {
