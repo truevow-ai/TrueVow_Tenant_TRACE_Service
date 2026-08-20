@@ -53,6 +53,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 REKEY_CONFIRM = "TRUEVOW_NONPROD_PHI_REKEY"
 FIXED_PROJECT_REF = "cnbzuiuyppzrygxllgxj"
+EXACT_DIRECT_HOST = f"db.{FIXED_PROJECT_REF}.supabase.co"
+EXACT_POOLER_USERNAME = f"postgres.{FIXED_PROJECT_REF}"
 DISCLOSED_SYNTHETIC_TOKEN = "cf8c5919-f2fa-4534-9272-16ac706fa3b0"
 DISCLOSED_SYNTHETIC_FIRM = "6de57278-c6ce-4f19-a34f-ece2ce24b43b"
 
@@ -86,7 +88,11 @@ class RekeyBlocked(Exception):
 # ─────────────────────────────────────────────────────────────────────
 
 def validate_rekey_url(url: str, pooler_latch: str = "") -> str:
-    """Validate the re-key URL against the FIXED designated project.
+    """Validate the re-key URL against EXACT designated-project identity.
+
+    Direct: host must be exactly db.<ref>.supabase.co. Pooler: host must end
+    .pooler.supabase.com, the explicit latch must match, and the parsed
+    username must be exactly postgres.<ref>. No substring matching anywhere.
 
     Returns the normalized postgresql:// URL or raises RekeyRefused.
     """
@@ -96,17 +102,17 @@ def validate_rekey_url(url: str, pooler_latch: str = "") -> str:
         raise RekeyRefused("TRACE_PHI_REKEY_DATABASE_URL must be a PostgreSQL URL")
     parsed = urlsplit(url)
     host = (parsed.hostname or "").lower()
-    direct_ok = FIXED_PROJECT_REF in host and host.endswith(".supabase.co")
-    pooler_ok = host.endswith(".pooler.supabase.com") and pooler_latch == REKEY_CONFIRM
+    username = parsed.username or ""
+    direct_ok = host == EXACT_DIRECT_HOST
+    pooler_ok = (
+        host.endswith(".pooler.supabase.com")
+        and pooler_latch == REKEY_CONFIRM
+        and username == EXACT_POOLER_USERNAME
+    )
     if not direct_ok and not pooler_ok:
         raise RekeyRefused(
-            "TRACE_PHI_REKEY_DATABASE_URL host is not the designated "
-            f"project ({FIXED_PROJECT_REF})"
-        )
-    if pooler_ok and FIXED_PROJECT_REF not in (parsed.username or ""):
-        raise RekeyRefused(
-            "pooler username does not identify the designated project "
-            f"({FIXED_PROJECT_REF})"
+            "TRACE_PHI_REKEY_DATABASE_URL does not exactly identify the "
+            f"designated project ({FIXED_PROJECT_REF})"
         )
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
@@ -148,18 +154,20 @@ def classify_field(value: str, legacy_key: bytes, new_key: bytes) -> str:
 
 
 def build_rekey_plan(rows: list[dict], legacy_key: bytes, new_key: bytes) -> dict:
-    """Mixed-key transaction plan.
+    """Mixed-key transaction plan with FIELD-LEVEL state.
 
-    Rows containing any LEGACY field go into the rekey cohort (all their
-    non-null fields are re-encrypted with the new key). Rows whose fields are
-    all ALREADY_NEW are untouched. Any BLOCKED field makes the whole plan
-    blocked (zero writes).
+    Each row entry records exactly which fields are LEGACY (to be re-encrypted
+    with the new key) and which are ALREADY_NEW (left byte-for-byte
+    untouched). Rows containing only ALREADY_NEW fields are not touched at
+    all. Any BLOCKED field anywhere makes the whole plan blocked (zero
+    writes).
     """
-    rekey_rows: list[dict] = []
+    rekey_entries: list[dict] = []
     untouched_rows = 0
     blocked_fields = 0
     for row in rows:
-        has_legacy = False
+        legacy_fields: list[str] = []
+        already_new_fields: list[str] = []
         has_blocked = False
         for field in _FIELDS:
             value = row.get(field)
@@ -170,15 +178,21 @@ def build_rekey_plan(rows: list[dict], legacy_key: bytes, new_key: bytes) -> dic
                 has_blocked = True
                 blocked_fields += 1
             elif state == "LEGACY":
-                has_legacy = True
+                legacy_fields.append(field)
+            else:
+                already_new_fields.append(field)
         if has_blocked:
             continue  # counted; plan stays blocked
-        if has_legacy:
-            rekey_rows.append(row)
+        if legacy_fields:
+            rekey_entries.append({
+                "row": row,
+                "legacy_fields": legacy_fields,
+                "already_new_fields": already_new_fields,
+            })
         else:
             untouched_rows += 1
     return {
-        "rekey_rows": rekey_rows,
+        "rekey_entries": rekey_entries,
         "untouched_rows": untouched_rows,
         "blocked_fields": blocked_fields,
         "blocked": blocked_fields > 0,
@@ -229,22 +243,39 @@ async def _load_rows(conn, excluded_token: str | None = None) -> list[dict]:
     return [dict(row) for row in result.mappings().all()]
 
 
-async def _rekey_rows_tx(conn, rows: list[dict], legacy_key: bytes, new_key: bytes) -> int:
+async def _rekey_rows_tx(
+    conn,
+    rekey_entries: list[dict],
+    legacy_key: bytes,
+    new_key: bytes,
+) -> int:
+    """Field-level re-key inside ONE transaction.
+
+    Only LEGACY fields are rewritten (decrypt legacy -> encrypt new, verified
+    decryptable before write). ALREADY_NEW fields are left byte-for-byte
+    untouched (excluded from the UPDATE entirely) but are verified decryptable
+    under the new key before commit.
+    """
     rekeyed_fields = 0
-    for row in rows:
+    for entry in rekey_entries:
+        row = entry["row"]
         updates: list[str] = []
         params: dict = {}
-        for field in _FIELDS:
-            value = row.get(field)
-            if not value:
-                continue
-            plaintext = _decrypt_with(legacy_key, value)
+        for field in entry["legacy_fields"]:
+            plaintext = _decrypt_with(legacy_key, row[field])
             new_blob = _encrypt_with(new_key, plaintext)
             if _decrypt_with(new_key, new_blob) != plaintext:
                 raise RekeyBlocked("new-key verification failed before commit")
             updates.append(f"{field} = :{field}")
             params[field] = new_blob
             rekeyed_fields += 1
+        for field in entry["already_new_fields"]:
+            if not _try_decrypt(new_key, row[field]):
+                raise RekeyBlocked(
+                    "already-new field failed pre-commit verification"
+                )
+        if not updates:
+            continue
         params["tok"] = row["client_token"]
         await conn.execute(
             text(
@@ -321,7 +352,7 @@ async def _run_guarded() -> None:
 
     plan = build_rekey_plan(rows, legacy_key, new_key)
     print(f"total rows considered: {len(rows)}")
-    print(f"legacy cohort rows: {len(plan['rekey_rows'])}")
+    print(f"legacy cohort rows: {len(plan['rekey_entries'])}")
     print(f"already-new rows (untouched): {plan['untouched_rows']}")
     print(f"blocked fields: {plan['blocked_fields']}")
 
@@ -332,9 +363,9 @@ async def _run_guarded() -> None:
 
     async with engine.begin() as conn:
         rekeyed_fields = await _rekey_rows_tx(
-            conn, plan["rekey_rows"], legacy_key, new_key
+            conn, plan["rekey_entries"], legacy_key, new_key
         )
-    print(f"rows rekeyed: {len(plan['rekey_rows'])}")
+    print(f"rows rekeyed: {len(plan['rekey_entries'])}")
     print(f"fields rekeyed: {rekeyed_fields}")
 
     # Fresh post-commit verification of ALL remaining rows under the new key.
@@ -367,15 +398,19 @@ async def _run_targeted(engine, target_token: str, legacy_key: bytes, new_key: b
     row = rows[0]
 
     # Preflight: EVERY non-null field must decrypt with the legacy key.
+    non_null_fields: list[str] = []
     for field in _FIELDS:
         value = row.get(field)
         if value and not _try_decrypt(legacy_key, value):
             raise RekeyBlocked(
                 f"target row preflight failed for field={field} under legacy key"
             )
+        if value:
+            non_null_fields.append(field)
 
+    entry = {"row": row, "legacy_fields": non_null_fields, "already_new_fields": []}
     async with engine.begin() as conn:
-        rekeyed_fields = await _rekey_rows_tx(conn, [row], legacy_key, new_key)
+        rekeyed_fields = await _rekey_rows_tx(conn, [entry], legacy_key, new_key)
 
     async with engine.connect() as conn:
         verify = (await conn.execute(_SELECT_ONE_SQL, {"token": target_token})).mappings().all()
