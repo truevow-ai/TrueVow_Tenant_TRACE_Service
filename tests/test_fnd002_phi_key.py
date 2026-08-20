@@ -15,6 +15,7 @@ import pytest
 from app.core import crypto
 from app.core.config import settings
 from app.core.crypto import (
+    PhiDecryptError,
     PhiKeyError,
     classify_phi_key,
     decrypt,
@@ -130,6 +131,16 @@ class TestCryptoBehavior:
         assert classify_phi_key("") == "MISSING"
         assert classify_phi_key("short") == "INVALID"
 
+    def test_key_error_message_is_sanitized(self):
+        """Key-config errors must not disclose supplied key lengths/details."""
+        for bad in ("short", RAW31, "a" * 60):
+            with pytest.raises(PhiKeyError) as exc_info:
+                resolve_phi_key(bad)
+            message = str(exc_info.value)
+            assert "len" not in message.lower()
+            assert "base64_decoded_len" not in message
+            assert "raw_len" not in message
+
 
 # ─────────────────────────────────────────────────────────────────────
 # PHI store behavior (guarded persistence lane)
@@ -190,9 +201,72 @@ async def test_decryption_failure_is_controlled(monkeypatch):
         name="Controlled", dob="1980-01-01", address="X", phone="1",
         firm_id=uuid.uuid4(),
     )
-    # Wrong valid key: decryption must fail closed to None, never garbage.
+    # Wrong valid key: existing-but-unreadable must raise PhiDecryptError —
+    # never return None ("not found"), never return garbage.
     monkeypatch.setattr(settings, "trace_phi_encryption_key", OTHER32)
-    assert await get_client(token) is None
+    with pytest.raises(PhiDecryptError):
+        await get_client(token)
+
+
+@pytest.mark.asyncio
+async def test_existing_row_with_missing_key_raises_config_error(monkeypatch):
+    from app.services.phi_store import get_client, store_client
+
+    token = await store_client(
+        name="Keyless", dob="1980-01-01", address="X", phone="1",
+        firm_id=uuid.uuid4(),
+    )
+    monkeypatch.setattr(settings, "trace_phi_encryption_key", "")
+    with pytest.raises(PhiKeyError):
+        await get_client(token)
+
+
+@pytest.mark.asyncio
+async def test_existing_row_with_tampered_ciphertext_raises_decrypt_error():
+    from sqlalchemy import select
+
+    from app.core.database import phi_session_maker
+    from app.models.client import Client
+    from app.services.phi_store import get_client, store_client
+
+    token = await store_client(
+        name="Tamper", dob="1980-01-01", address="X", phone="1",
+        firm_id=uuid.uuid4(),
+    )
+    async with phi_session_maker() as session:
+        row = (await session.execute(
+            select(Client).where(Client.client_token == token)
+        )).scalar_one()
+        blob = bytearray(base64.b64decode(row.encrypted_name))
+        blob[-1] ^= 0x01
+        row.encrypted_name = base64.b64encode(bytes(blob)).decode()
+        await session.commit()
+
+    with pytest.raises(PhiDecryptError):
+        await get_client(token)
+
+
+@pytest.mark.asyncio
+async def test_phi_read_failure_logs_are_redacted(caplog, monkeypatch):
+    from app.services.phi_store import get_client, store_client
+
+    plaintext = "REDACTED-PLAINTEXT-MARKER-9f8a7b"
+    token = await store_client(
+        name=plaintext, dob="1980-01-01", address="X", phone="1",
+        firm_id=uuid.uuid4(),
+    )
+    monkeypatch.setattr(settings, "trace_phi_encryption_key", OTHER32)
+    with caplog.at_level("ERROR"):
+        try:
+            await get_client(token)
+        except PhiDecryptError:
+            pass
+    log_text = "\n".join(record.message for record in caplog.records)
+    assert plaintext not in log_text
+    # No key material may appear in logs.
+    assert RAW32 not in log_text
+    assert OTHER32 not in log_text
+    assert B64_32 not in log_text
 
 
 # ─────────────────────────────────────────────────────────────────────

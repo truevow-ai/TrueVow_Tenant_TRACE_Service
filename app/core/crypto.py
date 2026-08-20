@@ -34,11 +34,18 @@ class PhiKeyError(Exception):
     """PHI encryption key is missing or malformed (fail closed)."""
 
 
+class PhiDecryptError(Exception):
+    """Ciphertext exists but cannot be authenticated/decrypted."""
+
+
 def resolve_phi_key(raw: str | None) -> bytes:
     """Resolve ``TRACE_PHI_ENCRYPTION_KEY`` to exactly 32 bytes.
 
     Precedence: valid base64 -> exactly 32 bytes first, then raw UTF-8 of
     exactly 32 bytes. Everything else raises ``PhiKeyError``.
+
+    Error messages are sanitized: they never disclose supplied key lengths
+    or any key-derived detail.
     """
     if not raw or not raw.strip():
         raise PhiKeyError("TRACE_PHI_ENCRYPTION_KEY is not configured.")
@@ -55,9 +62,8 @@ def resolve_phi_key(raw: str | None) -> bytes:
         return as_raw
 
     raise PhiKeyError(
-        "TRACE_PHI_ENCRYPTION_KEY must be valid base64 decoding to exactly "
-        f"{_KEY_BYTES} bytes or raw UTF-8 of exactly {_KEY_BYTES} bytes "
-        f"(base64_decoded_len={len(decoded)}, raw_len={len(as_raw)})."
+        "TRACE_PHI_ENCRYPTION_KEY is malformed: it must be valid base64 "
+        "decoding to exactly 32 bytes, or raw UTF-8 of exactly 32 bytes."
     )
 
 
