@@ -1,12 +1,19 @@
 """Application-level AES-256-GCM encryption for PHI columns.
 
-Encrypting in the application (rather than pgcrypto in the DB) keeps the key out
-of the database entirely — it comes from KMS/Secrets Manager — which matches the
-spec's "keys managed via KMS, never stored in the database" requirement and stays
-portable across the operational Postgres and the dedicated PHI database.
+FND-002 — fail-closed key handling:
+
+  - no hard-coded development key exists in executable code;
+  - ``TRACE_PHI_ENCRYPTION_KEY`` must be valid base64 decoding to exactly
+    32 bytes, or raw UTF-8 of exactly 32 bytes (base64 is checked first);
+  - missing, empty, short, long, or malformed keys raise ``PhiKeyError`` —
+    keys are never padded, truncated, generated, or silently reinterpreted;
+  - the ciphertext format (``nonce(12) || ciphertext+tag``, then base64) is
+    unchanged, so ciphertext produced with a valid 32-byte key remains
+    decryptable;
+  - key material is never logged and never appears in responses; readiness
+    reports only ok/fail.
 
 Ciphertext is stored as base64-encoded Text in ``trace_phi.clients``.
-Wire format: ``nonce(12) || ciphertext+tag``, then base64-encoded.
 """
 
 from __future__ import annotations
@@ -20,20 +27,62 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from app.core.config import settings
 
 _NONCE_BYTES = 12
-_DEV_KEY = b"trace-dev-insecure-phi-key-32byt"  # exactly 32 bytes; dev/test only
+_KEY_BYTES = 32
 
 
-def _key() -> bytes:
-    raw = settings.trace_phi_encryption_key
-    if not raw:
-        return _DEV_KEY
+class PhiKeyError(Exception):
+    """PHI encryption key is missing or malformed (fail closed)."""
+
+
+def resolve_phi_key(raw: str | None) -> bytes:
+    """Resolve ``TRACE_PHI_ENCRYPTION_KEY`` to exactly 32 bytes.
+
+    Precedence: valid base64 -> exactly 32 bytes first, then raw UTF-8 of
+    exactly 32 bytes. Everything else raises ``PhiKeyError``.
+    """
+    if not raw or not raw.strip():
+        raise PhiKeyError("TRACE_PHI_ENCRYPTION_KEY is not configured.")
+
     try:
         decoded = base64.b64decode(raw, validate=True)
     except (ValueError, binascii.Error):
-        decoded = raw.encode("utf-8")
-    if len(decoded) < 32:
-        decoded = decoded.ljust(32, b"0")
-    return decoded[:32]
+        decoded = b""
+    if len(decoded) == _KEY_BYTES:
+        return decoded
+
+    as_raw = raw.encode("utf-8")
+    if len(as_raw) == _KEY_BYTES:
+        return as_raw
+
+    raise PhiKeyError(
+        "TRACE_PHI_ENCRYPTION_KEY must be valid base64 decoding to exactly "
+        f"{_KEY_BYTES} bytes or raw UTF-8 of exactly {_KEY_BYTES} bytes "
+        f"(base64_decoded_len={len(decoded)}, raw_len={len(as_raw)})."
+    )
+
+
+def classify_phi_key(raw: str | None) -> str:
+    """Non-secret classification of a key value for validation reporting."""
+    if not raw or not raw.strip():
+        return "MISSING"
+    try:
+        key = resolve_phi_key(raw)
+    except PhiKeyError:
+        return "INVALID"
+    try:
+        decoded = base64.b64decode(raw, validate=True)
+    except (ValueError, binascii.Error):
+        decoded = b""
+    return "VALID_BASE64_32" if decoded == key else "VALID_RAW_32"
+
+
+def _key() -> bytes:
+    return resolve_phi_key(settings.trace_phi_encryption_key)
+
+
+def validate_phi_key() -> None:
+    """Structural readiness check: raises ``PhiKeyError`` when unusable."""
+    _key()
 
 
 def encrypt(plaintext: str) -> str:

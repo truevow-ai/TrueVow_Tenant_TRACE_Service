@@ -137,6 +137,16 @@ async def readiness() -> dict:
     except Exception as e:
         checks["database"] = f"fail: {e}"
 
+    # 4. PHI encryption key structural check (FND-002). Non-secret: reports
+    # ok/fail only — never the key, a fingerprint, or any key-derived value.
+    try:
+        from app.core.crypto import validate_phi_key
+
+        validate_phi_key()
+        checks["phi_key"] = "ok"
+    except Exception:
+        checks["phi_key"] = "fail: PHI encryption key missing or malformed"
+
     failed = {k: v for k, v in checks.items() if v != "ok" and not str(v).startswith("ok")}
     ready = len(failed) == 0
 

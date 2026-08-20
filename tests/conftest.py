@@ -31,6 +31,9 @@ import uuid
 os.environ["ENVIRONMENT"] = "test"
 os.environ["AUTH_MODE"] = "local"
 os.environ["LOCAL_JWT_SECRET"] = "test-secret-at-least-32-bytes-long-000"
+# Explicit synthetic PHI encryption key (FND-002): exactly 32 raw bytes.
+# The test suite never relies on any hard-coded fallback key.
+os.environ["TRACE_PHI_ENCRYPTION_KEY"] = "0123456789abcdef0123456789abcdef"
 
 TEST_PG_URL = os.environ.get("TRACE_TEST_PG_URL", "")
 TEST_PHI_PG_URL = os.environ.get("TRACE_TEST_PHI_PG_URL", "")

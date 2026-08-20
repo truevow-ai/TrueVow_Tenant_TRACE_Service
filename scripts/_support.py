@@ -45,6 +45,12 @@ def require_test_database() -> None:
     # Legacy aliases must not compete during settings resolution.
     os.environ.pop("DATABASE_URL", None)
     os.environ.pop("PHI_DATABASE_URL", None)
+    # FND-002: PHI encryption has no fallback key. Synthetic-seeding scripts
+    # must carry an explicit synthetic key; provide the documented test value
+    # only when the operator has not supplied one.
+    os.environ.setdefault(
+        "TRACE_PHI_ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef"
+    )
 
 
 def make_local_token(
