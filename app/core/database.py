@@ -40,17 +40,21 @@ async def get_db(
 ) -> AsyncGenerator[AsyncSession, None]:
     """Yield a firm-scoped session. Requires an authenticated caller.
 
-    Always Postgres: the RLS GUCs are set unconditionally so isolation is
-    enforced by Row-Level Security on every request.
+    Always Postgres: the RLS GUCs are set transaction-locally via
+    parameterized ``set_config`` (FND-003 hardening) — identity values are
+    bound as parameters, never interpolated into SQL strings.
     """
     async with async_session_maker() as session:
         await session.execute(
-            text(f"SET LOCAL app.current_tenant_id = '{ctx.firm_id}'")
+            text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+            {"tenant_id": ctx.firm_id},
         )
         await session.execute(
-            text(f"SET LOCAL app.current_user_id = '{ctx.user_id}'")
+            text("SELECT set_config('app.current_user_id', :user_id, true)"),
+            {"user_id": ctx.user_id},
         )
         await session.execute(
-            text(f"SET LOCAL app.current_user_role = '{ctx.role or ''}'")
+            text("SELECT set_config('app.current_user_role', :role, true)"),
+            {"role": ctx.role or ""},
         )
         yield session
