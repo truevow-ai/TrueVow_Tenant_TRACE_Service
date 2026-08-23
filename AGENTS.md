@@ -52,14 +52,14 @@ python ../TrueVow_Shared_Orchestration/orchestrator.py dispatch "<user's request
 
 | Field | Value |
 |-------|-------|
-| **Service name** | TRACE â€” Client Engagement and Case Readiness |
-| **Pipeline position** | INTAKE â†’ **TRACE** â†’ SETTLE â†’ COMMAND |
+| **Service name** | TRACE — Pre-Litigation Matter Development & Readiness (canonical; see docs/TRACE-CANONICAL-TRUTH.md §1) |
+| **Pipeline position** | Four products: INTAKE Captures. TRACE Develops. SETTLE Resolves. COMMAND Measures. Processing path: INTAKE → **TRACE** → SETTLE |
 | **Port** | 3036 |
 | **Owner** | Yasha |
 | **Clerk domain** | App 3 (TrueVow-Tenants) â€” external law firm users |
 | **Database** | Supabase Postgres: cnbzuiuyppzrygxllgxj (production project) |
 | **PHI store** | Separate Postgres schema (trace_phi), AES-256-GCM encryption |
-| **Status** | Phases 1A-1E COMPLETE. Phase 2A (evidence, ontology, contracts) deployed. 68/68 tests passing. |
+| **Status** | FND-001 (Postgres-only), FND-001A (baseline reconciliation), FND-002 (PHI fail-closed + re-key) PASS + merged to main. FND-003 (43-table RLS reconciliation) built on `trace/TRACE-FND-003` @ cc36a8d — guarded suite 163/163, Supabase at head 0022; gate blocked on runtime role `postgres` having rolbypassrls=true. Canonical statuses, gaps, and roadmap live in `docs/TRACE-CANONICAL-TRUTH.md` v1.0 (2026-08-23) — that document controls on any conflict. |
 
 ## Quick Start (for any agent)
 
@@ -72,6 +72,7 @@ python ../TrueVow_Shared_Orchestration/orchestrator.py dispatch "<user's request
 #    LOCAL_JWT_SECRET=test-secret-at-least-32-bytes-long-000
 #    TRACE_DATABASE_URL=postgresql://...  (REQUIRED — Supabase/Postgres only, no SQLite)
 #    TRACE_PHI_DATABASE_URL=postgresql://...
+#    TRACE_PHI_ENCRYPTION_KEY=<valid base64 or raw, exactly 32 bytes>  (REQUIRED — no fallback key, FND-002)
 #    LLM_SERVICE_PROVIDER=deepseek_api
 #    DEEPSEEK_API_KEY=sk-...
 
@@ -99,7 +100,7 @@ python -c "import jwt; print(jwt.encode({'sub':'test','firm_id':'11111111-1111-4
 | Customer Portal | 3031 | Attorney UI | No frontend, API still works via curl |
 | Tenant Billing | 3016 | Feature gating | Menu items hidden unless billing fallback exists |
 | DocuSeal | cloud | E-signature | Cases won't advance past PENDING_SIGNATURE (can force via DB) |
-| Documo Fax | cloud | Outbound fax | Fax send fails but API returns 200 with FAILED status |
+| Fax (Twilio default / Documo) | cloud | Outbound fax (`FAX_PROVIDER`) | Fax send fails but API returns 200 with FAILED status |
 
 ## Auth System
 
@@ -122,7 +123,7 @@ python -c "import jwt; print(jwt.encode({'sub':'test','firm_id':'11111111-1111-4
 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
-**Critical gotcha:** The service loads `.env.local` via `load_dotenv(override=True)` in `app/main.py`. If `.env.local` has `AUTH_MODE=clerk`, it WILL override any shell env var. To use local auth, `.env.local` MUST contain `AUTH_MODE=local`. If you change it, KILL AND RESTART the uvicorn process â€” the change only takes effect on startup.
+**Critical gotcha (updated FND-001A-R1):** `app/main.py` now loads `.env.local` with `override=False` — exported environment variables ALWAYS win over the local file. A checked-out `.env.local` can never redirect the runtime at a different database. Changes to `.env.local` still only take effect on process restart (KILL AND RESTART uvicorn).
 
 ## Architecture Summary
 
@@ -157,9 +158,12 @@ TRACE Backend (:3036, FastAPI)
 
 | File | Purpose |
 |------|---------|
-| `app/main.py` | FastAPI app, middleware, /health, /llm-test, load_dotenv |
-| `app/core/config.py` | pydantic-settings, env vars, DB URL resolution |
-| `app/core/middleware.py` | Correlation ID + audit logging |
+| `docs/TRACE-CANONICAL-TRUTH.md` | **Single source of truth** — statuses, contracts, gaps, roadmap, settled paths. Controls on any conflict. |
+| `CONTEXT.md` | Domain glossary — Matter vs Case, activation authority, canonical names |
+| `app/main.py` | FastAPI app, middleware, /health, /ready (phi_key check), dotenv override=False |
+| `app/core/config.py` | pydantic-settings, env vars, fail-closed Postgres URL resolution |
+| `app/core/crypto.py` | AES-256-GCM PHI crypto — strict 32-byte key contract, PhiKeyError/PhiDecryptError, no fallback key |
+| `app/core/database.py` | Async engines (Postgres only) + set_config-parameterized RLS GUCs in get_db |
 | `app/auth/clerk.py` | JWT verification (HS256 local / Clerk RS256) |
 | `app/auth/deps.py` | AuthContext dependency for FastAPI |
 | `app/api/v1/__init__.py` | Router aggregation â€” all endpoints wired here |
@@ -189,20 +193,23 @@ TRACE Backend (:3036, FastAPI)
 
 **Operational DB (`trace` schema):**
 - Connection: Supabase Postgres at cnbzuiuyppzrygxllgxj.supabase.co
-- Tables: cases, providers, documents, event_nodes, record_requests, liens, medical_bill_line, signed_documents, upload_links, audit_log, firm_users, pipeline_audit_log
-- Firm isolation: explicit `firm_id` filter on every query + Supabase RLS in production
+- 45 physical tables: 43 tenant-scoped (all with FORCE RLS + canonical `tenant_isolation_fnd003` USING/WITH CHECK policies, FND-003), `jurisdiction_profiles` (global), `alembic_version` (internal)
+- Firm isolation: RLS via `app.current_tenant_id` GUC (parameterized `set_config(..., true)` in `get_db`) + explicit `firm_id` filter in application queries
 - Every query MUST include `firm_id` filter â€” this is the multi-tenant isolation guarantee
 
 **PHI Store (`trace_phi` schema):**
 - Separate database/schema from operational DB
 - Client PII (name, DOB, address, phone) encrypted with AES-256-GCM
+- Key contract (FND-002): valid base64→32 bytes or raw UTF-8→32 bytes; no pad/truncate/fallback; missing/malformed key fails closed (PhiKeyError) and `/ready` reports `phi_key: fail`
+- Read semantics: missing row → None; key/config failure → PhiKeyError; wrong key/tampered → PhiDecryptError (never "not found")
 - Operational DB only sees `client_token` (opaque UUID)
 - Decryption only via `app/services/phi_store.py::get_client()`
 
 **Schema migrations applied:**
-- Migration `0017` â€” 31 new tables (evidence, ontology, client portal, workflow). Already applied to Supabase.
-- Migration `0008` â€” trace schema + RLS. Already applied.
-- Legacy ALTER TABLE for extraction_confidence and audit_log still pending (non-blocking).
+- Supabase head: `0022_fnd003_rls_reconciliation` (FND-003) — `/ready` pins this revision
+- FND-001A migrations `0019_baseline_reconcile` (provider width 32, trace alembic ledger 255), `0020_event_node_flag_priority`, `0021_flag_priority_guard` (NOT NULL + 3-value CHECK)
+- Migration `0017` â€” 31 Phase-2 tables; `0008` â€” trace schema
+- Historical ALTER TABLE debt for extraction_confidence / audit_log was cleared by FND-001A (migrations 0019-0021)
 
 ## Webhook Authentication (Frozen Contract: WebhookSignature v1.0)
 
@@ -254,6 +261,22 @@ Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVe
 | `str object has no attribute hex` | Passing string case_id to UUID column in Postgres | Always wrap with `uuid.UUID(case_id)` in raw SQL |
 | Wrong firm can read cases | `get_case` had no firm_id filter (pre-Jul 24) | Fixed. Now requires `Case.firm_id == firm_uuid`. |
 | Export returns TypeError | qa.py called export with wrong params | Fixed. Now passes strings from case model. |
+| Rows silently missing after raw-SQL seeding in tests | `conn.execute(...)` called without `await` — coroutine discarded | Always `await conn.execute(...)`; look for "coroutine was never awaited" warnings |
+| RLS denial tests pass wrongly after first assertion | `SET LOCAL ROLE` + `set_config(..., true)` are transaction-local; rollback/commit reverts role+GUC to superuser | Re-establish role and GUC after every rollback/commit in the same test session |
+| Raw INSERT into Phase-2 tables fails NOT NULL | 0017 tables have NO server-default PKs | Supply `gen_random_uuid()` for every id column explicitly |
+| `firm_users.auth_user_sub` column not found | DB column is `clerk_user_id` (model drift) | Use `clerk_user_id` in raw SQL |
+| `documents.source='TEST'` check violation | valid_source constraint allows only PROVIDER_FAX/ATTORNEY_UPLOAD/CLIENT_UPLOAD/SCAN/UNKNOWN/INBOUND_* | Use a valid source value |
+| `flag_priority` NOT NULL violation | Migration 0021 dropped the server default + set NOT NULL | Always supply flag_priority ('PRIORITY'/'ADVISORY'/'INFORMATIONAL') |
+| `PhiKeyError: TRACE_PHI_ENCRYPTION_KEY not configured` | No fallback key exists (FND-002) | Set a valid 32-byte key (base64 or raw); tests use the conftest synthetic key |
+| Docker daemon wedges during long pytest runs | OneDrive bind-mount I/O under WSL2 | Run suites from a container-local repo copy (`/app2` tar extraction), refresh changed files with `docker cp` |
+| FORCE RLS not blocking production reads | Supabase runtime role `postgres` has `rolbypassrls=true` (rolsuper=false) | Known FND-003 gate blocker — non-bypass runtime role commissioning is a separate bounded unit; app-level firm_id filters remain mandatory |
+
+## Change Management (binding)
+
+TRACE is evolved through bounded vertical slices — never phase-scale rewrites. Every change follows:
+`to-spec` → `to-tickets` → `implement` → `code-review` → independent TrueVow gate → merge/freeze → truth-doc update.
+Architecture changes additionally require seam-insufficiency evidence + ADR/canonical-decision update + bounded migration.
+Full contract: `docs/TRACE-CANONICAL-TRUTH.md` §11 (including the three-input anti-drift rule for every to-spec).
 
 ## Case Lifecycle (7 Stages)
 
@@ -318,14 +341,18 @@ python -c "import jwt; print(jwt.encode({'sub':'t','firm_id':'11111111-1111-4111
 
 ## Remaining TODOs
 
+Authoritative roadmap: `docs/TRACE-CANONICAL-TRUTH.md` §8 (security gaps) + §10 (roadmap). Summary:
+
 | Priority | Task | Blocked by |
 |----------|------|-----------|
-| HIGH | Run ALTER TABLE on Supabase for extraction_confidence + audit_log | Needs DB admin access |
-| HIGH | Configure RESEND_WEBHOOK_SECRET for inbound email | Resend dashboard setup |
-| MEDIUM | DocuSeal subscription for e-sign in production | Budget decision |
-| MEDIUM | Billing service: add `trace` to real feature response | ghaus-fsd (billing owner) |
+| HIGH | Close GAP-1: inbound Resend email webhook auth is FAIL-OPEN when secret/header absent (inbound.py:56) | Slice not yet scheduled |
+| HIGH | Close GAP-2: inbound fax webhook secret hardcoded empty (inbound.py:220) — same fail-open helper | Slice not yet scheduled |
+| HIGH | Commission non-bypass Supabase runtime role (rolbypassrls=false) to close FND-003 RLS gate | Supabashe role commissioning unit |
+| MEDIUM | Matter Readiness Board capability (current /readiness = PARTIAL; ADR-004 UI geometry superseded) | Product slice via to-spec |
+| MEDIUM | DocuSeal commissioning for e-sign in production | Budget decision |
+| MEDIUM | Billing service: verify per-Matter pricing + first-12 entitlement enforcement (ledger owns counts) | ghaus-fsd (billing owner) |
 | MEDIUM | Intake leads API route needs shared-library fix | @truevow/rbac-engine build |
-| LOW | Deploy TRACE to Fly.io | Staging environment ready |
+| LOW | Recommission Fly.io deployment (prereq for any PRODUCTION-PROVEN label) | Staging recommission decision |
 | LOW | DeepSeek BAA for production PHI-adjacent billing | Vendor negotiation |
 
 > Add further service-specific rules below. The ecosystem preamble above wires

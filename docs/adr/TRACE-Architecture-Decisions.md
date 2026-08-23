@@ -1,3 +1,7 @@
+> **Status: Superseded** - historical decision record (archived in place 2026-08-23).
+> Superseded by `docs/TRACE-CANONICAL-TRUTH.md`; see its Settled / Superseded Paths appendix for specific reversals.
+> Preserved for lineage only - not implementation guidance.
+
 # TRACE — Platform-Grounded Architecture Decisions (ADR-000)
 
 **Purpose:** Reconcile the TRACE PRD + Technical Spec against the **actual TrueVow platform** as it exists in the codebase today. Where the spec's `[DECISION LOCKED]` assumptions diverge from platform reality, this document records the grounded decision and flags anything that requires product-owner / Privacy-Officer sign-off (the spec requires written approval to deviate from Section 2).

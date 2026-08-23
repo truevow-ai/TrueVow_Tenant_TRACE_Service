@@ -1,3 +1,7 @@
+> **Status: Superseded** - historical decision record (archived in place 2026-08-23).
+> Superseded by `docs/TRACE-CANONICAL-TRUTH.md`; see its Settled / Superseded Paths appendix for specific reversals.
+> Preserved for lineage only - not implementation guidance.
+
 # ADR-004 — TRACE Phase 1E Architecture Plan
 ## Case Readiness Board, Tier 2 Flags, Billing Reconciliation, Export
 
