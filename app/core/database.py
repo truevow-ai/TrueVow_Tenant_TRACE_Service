@@ -9,7 +9,9 @@ so Row-Level Security enforces firm isolation as defense-in-depth.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import Depends
 from sqlalchemy import text
@@ -17,6 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.config import settings
+
+
+class BlockedInternalTenantContext(RuntimeError):
+    """Raised when operational work lacks trustworthy tenant identity.
+
+    Fail-closed contract (FND-003-R1): internal paths needing tenant-owned
+    data must carry explicit context from an authenticated/verified
+    authority. RLS is never weakened to avoid this condition.
+    """
 
 
 def _create_engine(url: str, *, search_path: str = ""):
@@ -57,4 +68,42 @@ async def get_db(
             text("SELECT set_config('app.current_user_role', :role, true)"),
             {"role": ctx.role or ""},
         )
+        yield session
+
+
+@asynccontextmanager
+async def internal_tenant_session(
+    *,
+    tenant_id: str | uuid.UUID,
+    user_id: str | uuid.UUID | None = None,
+    role: str | None = None,
+) -> AsyncGenerator[AsyncSession, None]:
+    """Yield an operational session carrying explicit tenant context.
+
+    The canonical seam for INTERNAL work outside the request cycle (audit
+    writer, activation projection, scheduled jobs): identical parameterized,
+    transaction-local GUCs as :func:`get_db`. Fails closed when no trusted
+    tenant identity is supplied — an unscoped internal session can never be
+    created from this seam.
+    """
+    tenant = str(tenant_id or "").strip()
+    if not tenant:
+        raise BlockedInternalTenantContext(
+            "internal tenant session requires explicit tenant context"
+        )
+    async with async_session_maker() as session:
+        await session.execute(
+            text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
+            {"tenant_id": tenant},
+        )
+        if user_id:
+            await session.execute(
+                text("SELECT set_config('app.current_user_id', :user_id, true)"),
+                {"user_id": str(user_id)},
+            )
+        if role:
+            await session.execute(
+                text("SELECT set_config('app.current_user_role', :role, true)"),
+                {"role": role},
+            )
         yield session
