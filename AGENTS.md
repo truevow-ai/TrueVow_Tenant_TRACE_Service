@@ -273,8 +273,8 @@ Two-layer: (1) 300s timestamp tolerance, (2) event_id idempotency via `WebhookVe
 
 ## Change Management (binding)
 
-TRACE is evolved through bounded vertical slices — never phase-scale rewrites. Every change follows:
-`to-spec` → `to-tickets` → `implement` → `code-review` → independent TrueVow gate → merge/freeze → truth-doc update.
+Every unit first receives a maturity classification (A built-proven / B awaiting-proof / C defect / D defined / E unresolved) in `docs/TRACE-MATURITY-LEDGER.md`; skills are then selected by maturity — never a mandatory linear ceremony. Code-producing work follows:
+`to-spec` (if warranted) → `to-tickets` → `implement` → `code-review` → independent TrueVow gate → merge/freeze → truth-doc update.
 Architecture changes additionally require seam-insufficiency evidence + ADR/canonical-decision update + bounded migration.
 Full contract: `docs/TRACE-CANONICAL-TRUTH.md` §11 (including the three-input anti-drift rule for every to-spec).
 

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.2 |
+| **Version** | 1.3 |
 | **Date** | 2026-08-23 |
 | **Authority** | This document controls on any conflict with any other file in this repository, including `AGENTS.md`, archived planning documents, and historical ADRs. |
 | **Basis** | Reconciliation of the as-built system (branch `trace/TRACE-FND-003` @ `cc36a8d`), the shared memory vault (689 entries through 2026-08-21), and three rounds of owner rulings (2026-08-23). |
@@ -279,11 +279,26 @@ Wide structural changes use expand-migrate-contract rather than big-bang rewrite
 
 **Revision log**
 
+### Maturity-first entry protocol (ratified 2026-08-23)
+
+Skills are selected by unit maturity — never as a mandatory linear ceremony. Before any Pocock skill is invoked on a unit, the unit is classified in `docs/TRACE-MATURITY-LEDGER.md`:
+
+```
+A BUILT_PROVEN          -> protect (no rework)
+B BUILT_AWAITING_PROOF  -> verify
+C DEFECT/HARDENING GAP  -> repair tickets (to-spec only when blast radius warrants)
+D DEFINED FEATURE       -> to-tickets if spec exists; else to-spec
+E UNRESOLVED FEATURE    -> wayfinder -> to-spec -> to-tickets
+```
+
+Then, for every class that produces code: implement → code-review → independent TrueVow verify → PASS/merge/freeze → truth + ledger writeback.
+
 | Version | Date | Change | Evidence |
 |---|---|---|---|
 | 1.0 | 2026-08-23 | Initial reconciliation from as-built audit + vault + owner rulings (3 grill rounds) | `cc36a8d`, vault 689 entries, session 2026-08-23 |
 | 1.1 | 2026-08-23 | Operating model ratified: architecture frozen as default; Pocock skill chain + TrueVow gates become mandatory change machinery; CHANGE MANAGEMENT + anti-drift three-input rule added (§11) | Owner ruling 2026-08-23 |
 | 1.2 | 2026-08-23 | Lifecycle adoption ruled PROSPECTIVE: completed work grandfathered; proportionality for small fixes; skills subordinate to canonical truth; four-eyes verification retained (§11) | Owner ruling 2026-08-23 |
+| 1.3 | 2026-08-23 | Maturity-first entry protocol added; TRACE Completion/Maturity Ledger v1.0 published (`docs/TRACE-MATURITY-LEDGER.md`); FND-003-R1 classified C (wide/security-sensitive), proceeds at IMPLEMENT stage | Owner ruling 2026-08-23; Sales Ops control-plane learning |
 
 ### Adoption semantics of the Pocock lifecycle (ratified 2026-08-23)
 
