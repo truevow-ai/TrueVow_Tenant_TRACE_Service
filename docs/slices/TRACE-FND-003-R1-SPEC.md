@@ -49,7 +49,7 @@ No redesign accompanies this slice. Migration 0022 policies, Matter/Case identit
 ## Implementation Decisions
 
 1. **Two-URL contract.** Add a migration/admin URL setting consumed exclusively by the migration tooling. The runtime application resolves only the existing runtime and PHI URLs; there is no fallback path from either to the privileged URL, and the migration tooling fails loudly if the privileged URL is absent (no silent reuse of the runtime URL).
-2. **Runtime identity.** A new dedicated Postgres login/role for the application: `NOSUPERUSER`, `NOBYPASSRLS`, `NOSUPERUSER`-class restrictions including no schema DDL in `trace`, no ownership of tenant tables, no privileges in `trace_phi`, and INSERT/SELECT-only on the audit table. Commissioned via a repeatable, idempotent SQL script checked into the repo (operator executes with the privileged connection); the script also grants the minimal table/column sequence DML rights the runtime requires and revokes inherited broad rights (including from the legacy direct-grant path used by pooled connections).
+2. **Runtime identity as version-controlled database state.** A dedicated Alembic migration — `0023_fnd003_runtime_role`, revising `0022_fnd003_rls_reconciliation` — is the **authoritative** creator/configurer of the runtime login and its grants/revokes: `NOSUPERUSER`, `NOBYPASSRLS`, non-owner of tenant tables, no CREATE/ALTER/DROP in `trace`, no privileges in `trace_phi`, and **INSERT-only** on the audit table. Because it lives in the migration chain, role/grant state is reviewable, replayable, and environment-independent. Alembic runs against `TRACE_MIGRATION_DATABASE_URL`; the application's required-migration marker advances to 0023 so `/ready` enforces commissioning. The operator script remains useful **only** for what must not live in Git: generate/set the runtime password, construct/store `TRACE_DATABASE_URL` securely, and run non-secret verification queries. It must never become an alternative authority for role/grant DDL.
 3. **Tenant-context closure.** Introduce one internal factory/helper alongside the existing request-scoped dependency that yields a session carrying the same three parameterized GUCs (`app.current_tenant_id`, `app.current_user_id`, `app.current_user_role`). Migrate onto it every operational caller proven to open a tenant-scoped session outside the canonical boundary — the audit writer and, per repo inspection at spec time, direct session opens in attorney QA routes, the Matter activation handler, client portal routes, evidence/lien/signing flows, inbound processing, and shared-foundation stores. **One architectural seam; multiple callers migrate onto it.**
 
    No new business-domain seam is introduced. FND-003-R1 may make **narrowly mechanical changes to any operational DB caller** proven to open a tenant-scoped session outside the canonical context boundary. Such changes may only: adopt the request-scoped dependency, invoke the shared tenant-context helper, or fail closed when no trustworthy tenant identity exists. They may not alter business semantics.
@@ -99,11 +99,23 @@ No redesign accompanies this slice. Migration 0022 policies, Matter/Case identit
 
    Any callback that cannot operate under that rule today **fails closed** and remains PARTIAL/uncommissioned until its integration-security slice.
 
-8. **Audit-under-RLS correctness.** The canonical policy set must accept audit INSERTs when tenant context matches the row's `firm_id`; where the audit policy requires a role carve-out (append-only semantics), express it via grants to the runtime role (INSERT/SELECT only), never via `BYPASSRLS`, never via `SET ROLE` escalation from a privileged session inside the app.
-9. **Readiness evidence.** Extend `/ready` with a `runtime_role` check executed on the runtime engine: report whether `current_user` = `session_user` = the expected login name, `rolsuper = false`, `rolbypassrls = false` (queried from the catalogs, values only — never credentials). Overall ready stays all-checks-green: `runtime_role`, `migration`, `database`, critical tables, `phi_key`.
+8. **Audit-under-RLS correctness.** The canonical policy set must accept audit INSERTs when tenant context matches the row's `firm_id`. The runtime role's audit access is **INSERT-only** — no SELECT / UPDATE / DELETE:
+
+   ```
+   audit_log:
+   runtime = INSERT only
+   no SELECT / UPDATE / DELETE
+
+   Acceptance verification of audit rows is performed through the
+   privileged/admin or designated read-only verification lane,
+   never by broadening the runtime role.
+   ```
+
+   Append-only semantics are expressed via grants to the runtime role, never via `BYPASSRLS`, never via `SET ROLE` escalation from a privileged session inside the app.
+9. **Readiness evidence.** Extend `/ready` with a `runtime_role` check executed on the runtime engine: report whether `current_user` = `session_user` = the expected login name, `rolsuper = false`, `rolbypassrls = false` (queried from the catalogs, values only — never credentials). The required-migration marker advances to `0023_fnd003_runtime_role`, so `/ready` reports `migration: ok` only when the role-contract migration is applied. Overall ready stays all-checks-green: `runtime_role`, `migration`, `database`, critical tables, `phi_key`.
 10. **Connection-string discipline.** Pooler compatibility preserved (existing statement-cache disablement behavior carries over unchanged); search-path handling stays as-is.
 11. **No SET ROLE workaround.** The application never connects as `postgres` and issues `SET ROLE`; commissioning means actually logging in as the restricted identity.
-12. **Idempotent, reversible-by-script commissioning.** The role/grant script is safe to re-run (idempotent GRANTs/revokes) and ships with a companion verification query block an operator can paste to confirm role attributes and effective policies.
+12. **Idempotent migration + secret-handling script split.** Migration 0023 is idempotent-by-design within the Alembic chain (safe upgrade path, working downgrade that removes the role only if safe) and is the sole authority for role/grant DDL. The companion operator script covers only non-versioned necessities — password generation/setting, secure construction/storage of `TRACE_DATABASE_URL`, and non-secret verification queries an operator can paste to confirm role attributes and effective policies.
 
 ## Testing Decisions
 
@@ -125,9 +137,10 @@ Supabase runtime:
 Runtime role:
   does not own tenant tables ; cannot CREATE in trace
   cannot ALTER/DROP schema objects ; cannot access trace_phi
-  cannot mutate/delete audit_log ; same-tenant operational CRUD works
+  audit_log INSERT-only (no SELECT/UPDATE/DELETE) ; same-tenant operational CRUD works
 Migration/admin:
   separate privileged URL ; application cannot fall back to it
+  0023_fnd003_runtime_role revises 0022 ; /ready requires 0023
 Tenant context:
   get_db() parameterized ; internal tenant sessions parameterized
   audit writer persists under RLS ; no unscoped tenant-operational session remains
