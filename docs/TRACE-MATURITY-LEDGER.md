@@ -26,6 +26,7 @@
 | Case lifecycle (7 stages, 4 gates), case/provider/lien/document CRUD | Guarded suite green @ `cc36a8d`; FND-series merges | Protect |
 | 43-table FORCE RLS policy layer (migration 0022 + preflight guard) | 15 adversarial tests; suite 163/163 | Protect (runtime enforcement itself = C below) |
 | PHI store: AES-256-GCM strict key contract, fail-closed reads | FND-002 merged; `/ready phi_key` | Protect |
+| PHI re-key commissioning (49 historical rows, 2026-08-20) | Accepted gate history closed FND-002 before FND-003 began (owner ruling 2026-08-23) — **Class A**, correcting the v1.0 misplacement in Class B | Protect |
 | Evidence layer (EvidenceFact/SourceLocation/ContradictionPair/MissingEvidenceSignal/FactVersion) | Wired into chronology/flags/fact-review; covered | Protect |
 | Shared foundation (AuthorityGate/ConsentLedger/PolicyRegistry/EventStore/StateMachine) | Implemented ~300–400 lines each; covered | Protect |
 | Webhook contract WebhookSignature v1.0 + 17 golden fixtures; EventEnvelope 1.0.1 | Golden fixture tests; RC-v3 pilot PASS | Protect |
@@ -37,7 +38,6 @@
 
 | Unit | Missing proof | Route |
 |---|---|---|
-| FND-002 re-key commissioning | Independent **Gate-002 PASS** awaited since 2026-08-20 (truth §10 #7) | Verify (independent gate) |
 | DocuSeal self-host signing path | Service uncommissioned (no deployment/subscription) | Verify-after-commissioning; blocked by budget decision |
 | Fly.io deployment posture | Pilot deployment expired evidence (`BUILT-STALE`) | Verify on recommission (prereq for any PRODUCTION-PROVEN) |
 
