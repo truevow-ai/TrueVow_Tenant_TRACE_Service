@@ -208,7 +208,7 @@ Required: commissioned secret + fail-closed verification.
 | 4 | DocuSeal commissioning (self-hosted deployment or approved subscription) to make the signing path live | `signing.py` BUILT-STALE |
 | 5 | Resolve canonical identity contract: Clerk org ↔ TrueVow tenant UUID mapping (platform-level) | §4 |
 | 6 | First-class `matter_id` storage on cases; fix projection naming conflation | §4, §9 |
-| 7 | ~~Independent Gate-002 PASS for FND-002~~ **CLOSED 2026-08-23** — accepted gate history closed FND-002 before FND-003 began | Owner ruling 2026-08-23 |
+| 7 | *(removed — Gate-002 closure recorded 2026-08-23; FND-002 reclassified BUILT_PROVEN)* | Owner ruling 2026-08-23 |
 | 8 | Recommission staging/production Fly deployment (prerequisite for any `PRODUCTION-PROVEN` label) | §5 deployment row |
 
 ### IDEA / TBD (no commitment; requires explicit product decision)

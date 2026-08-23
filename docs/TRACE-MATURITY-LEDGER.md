@@ -4,7 +4,7 @@
 |---|---|
 | **Version** | 1.0 |
 | **Date** | 2026-08-23 |
-| **Authority** | Classification derived from `docs/TRACE-CANONICAL-TRUTH.md` v1.2 (statuses carry evidence), accepted gate history, and the session audit. This ledger routes work; the truth doc remains the substantive authority. |
+| **Authority** | Classification derived from `docs/TRACE-CANONICAL-TRUTH.md` v1.3 (statuses carry evidence), accepted gate history, and the session audit. This ledger routes work; the truth doc remains the substantive authority. |
 | **Purpose** | Entry gate for the Pocock lifecycle: every outstanding unit receives a maturity classification BEFORE a skill is chosen. Skills are selected by maturity — never by how complicated an item looks. |
 
 ## Classes
