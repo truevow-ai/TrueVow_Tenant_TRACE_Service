@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.1 |
+| **Version** | 1.2 |
 | **Date** | 2026-08-23 |
 | **Authority** | This document controls on any conflict with any other file in this repository, including `AGENTS.md`, archived planning documents, and historical ADRs. |
 | **Basis** | Reconciliation of the as-built system (branch `trace/TRACE-FND-003` @ `cc36a8d`), the shared memory vault (689 entries through 2026-08-21), and three rounds of owner rulings (2026-08-23). |
@@ -283,6 +283,14 @@ Wide structural changes use expand-migrate-contract rather than big-bang rewrite
 |---|---|---|---|
 | 1.0 | 2026-08-23 | Initial reconciliation from as-built audit + vault + owner rulings (3 grill rounds) | `cc36a8d`, vault 689 entries, session 2026-08-23 |
 | 1.1 | 2026-08-23 | Operating model ratified: architecture frozen as default; Pocock skill chain + TrueVow gates become mandatory change machinery; CHANGE MANAGEMENT + anti-drift three-input rule added (§11) | Owner ruling 2026-08-23 |
+| 1.2 | 2026-08-23 | Lifecycle adoption ruled PROSPECTIVE: completed work grandfathered; proportionality for small fixes; skills subordinate to canonical truth; four-eyes verification retained (§11) | Owner ruling 2026-08-23 |
+
+### Adoption semantics of the Pocock lifecycle (ratified 2026-08-23)
+
+- **Prospective only.** Previously accepted TrueVow gates are accepted historical work; completed development is grandfathered — no retroactive re-specification.
+- **Proportionality.** Tiny repairs use a small spec/ticket; substantive slices use the full flow. No ceremony for ceremony's sake.
+- **Tools, not authority.** The skills shape *how* engineering work is executed; canonical truth and accepted TrueVow decisions remain authoritative over any skill convention. If a convention proves counterproductive, the workflow adjusts — the architecture does not bend to accommodate tooling.
+- **Four-eyes separation stands.** `code-review` conformance to spec never substitutes for independent TrueVow verification of repo, database, migration, and security state.
 
 ## 12. Settled / Superseded Paths (anti-resurrection appendix)
 
