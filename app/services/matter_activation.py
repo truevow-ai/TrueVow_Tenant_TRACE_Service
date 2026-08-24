@@ -32,7 +32,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.case import Case
 
@@ -154,7 +154,9 @@ class MatterActivationHandler:
                                 f"Schema version '{payload.schema_version}' not in {set(SUPPORTED_SCHEMA_VERSIONS)}")
 
         # ── 5 & 6 & 7: Duplicate check, tenant activity, authority ──
-        async with async_session_maker() as session:
+        # T06A: envelope-verified tenant context (payload.tenant_id passed the
+        # manifest checks above) BEFORE any DB read — canonical seam, no bypass.
+        async with internal_tenant_session(tenant_id=payload.tenant_id) as session:
             existing = await self._find_existing_case(session, payload.matter_id, payload.tenant_id)
 
             if existing is not None:

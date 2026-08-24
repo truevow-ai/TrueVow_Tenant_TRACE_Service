@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.audit import write_audit
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.case import Case
 from app.models.signed_document import SignedDocument
@@ -40,7 +40,7 @@ async def _get_signing_service() -> SigningService:
 
 
 async def _get_case(case_id: uuid.UUID, firm_id: uuid.UUID) -> Case | None:
-    async with async_session_maker() as session:
+    async with internal_tenant_session(tenant_id=firm_id) as session:
         result = await session.execute(
             select(Case).where(
                 Case.case_id == case_id,
@@ -78,7 +78,9 @@ async def send_signing_package(
         matter_reference=f"Matter #{case.case_id}",
     )
 
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         case.hipaa_auth_status = "SENT"
         case.signing_sent_at = datetime.now(timezone.utc)
         case.docuseal_submission_id = result.submission_id
