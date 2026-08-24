@@ -1,10 +1,12 @@
 """Alembic migration environment (async).
 
-Resolves the database URL from ``TRACE_DATABASE_URL`` / ``DATABASE_URL`` and
-runs migrations against Supabase Postgres. This is the ONLY acceptance-schema
-path: tests never build the schema from SQLAlchemy metadata
-(``metadata.create_all``) — persistence tests run migrations and require a
-designated non-production Postgres.
+Resolves the database URL EXCLUSIVELY from the privileged
+``TRACE_MIGRATION_DATABASE_URL`` (FND-003-R1 T02 two-URL authority split):
+the runtime ``TRACE_DATABASE_URL`` is never used for migrations and cannot
+act as a fallback. Runs against Supabase Postgres. This is the ONLY
+acceptance-schema path: tests never build the schema from SQLAlchemy
+metadata (``metadata.create_all``) — persistence tests run migrations and
+require a designated non-production Postgres.
 """
 
 from __future__ import annotations
@@ -19,9 +21,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.models import Base
 
-# Load .env.local WITHOUT override: an explicitly exported TRACE_DATABASE_URL
-# (e.g. the designated non-production test database) must always win, so a
-# checked-out local file can never redirect migrations at a production database.
+# Load .env.local WITHOUT override: an explicitly exported
+# TRACE_MIGRATION_DATABASE_URL must always win over a checked-out local file.
 load_dotenv(".env.local", override=False)
 
 config = context.config
@@ -32,9 +33,12 @@ target_metadata = Base.metadata
 
 
 def _db_url() -> str:
-    url = os.getenv("TRACE_DATABASE_URL") or os.getenv("DATABASE_URL")
+    url = os.getenv("TRACE_MIGRATION_DATABASE_URL")
     if not url:
-        raise RuntimeError("Set TRACE_DATABASE_URL or DATABASE_URL to run migrations.")
+        raise RuntimeError(
+            "Set TRACE_MIGRATION_DATABASE_URL (privileged admin connection) "
+            "to run migrations. The runtime TRACE_DATABASE_URL is never used."
+        )
     if url.startswith("postgresql://") and "+asyncpg" not in url:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
     return url

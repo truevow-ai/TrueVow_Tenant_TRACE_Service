@@ -91,7 +91,7 @@ CRITICAL_TABLES = [
     "jurisdiction_profiles", "consent_records", "policy_records",
 ]
 
-REQUIRED_MIGRATION_REVISION = "0022_fnd003_rls_reconciliation"
+REQUIRED_MIGRATION_REVISION = "0023_fnd003_runtime_role"
 
 
 @app.get("/ready", tags=["health"])

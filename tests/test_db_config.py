@@ -97,3 +97,36 @@ class TestStartupFailsClosed:
             f"startup must fail closed for env {env_patch}; "
             f"stdout={result.stdout} stderr={result.stderr}"
         )
+
+
+class TestMigrationUrlResolution:
+    """T02 two-URL authority split: privileged URL is its own fail-closed lane."""
+
+    def test_missing_migration_db_fails_closed(self):
+        # Non-aliased field: must be keyed by its exact field name.
+        s = Settings(
+            _env_file=None,
+            trace_migration_database_url=None,
+        )
+        with pytest.raises(RuntimeError, match="TRACE_MIGRATION_DATABASE_URL"):
+            _ = s.effective_migration_database_url
+
+    def test_postgres_migration_url_normalizes_to_asyncpg(self):
+        s = Settings(
+            _env_file=None,
+            trace_migration_database_url="postgresql://u:p@host:5432/db",
+        )
+        assert (
+            s.effective_migration_database_url
+            == "postgresql+asyncpg://u:p@host:5432/db"
+        )
+
+    @pytest.mark.parametrize("bad_url", [
+        "sqlite:///local.db",
+        "mysql://u:p@host/db",
+        "not-a-url",
+    ])
+    def test_non_postgres_migration_urls_rejected(self, bad_url):
+        s = Settings(_env_file=None, trace_migration_database_url=bad_url)
+        with pytest.raises(RuntimeError):
+            _ = s.effective_migration_database_url

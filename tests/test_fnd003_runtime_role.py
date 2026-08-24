@@ -227,6 +227,8 @@ async def test_missing_context_fails_closed(_setup_db):
 def test_downgrade_upgrade_deterministic():
     env = {**os.environ}
     env["TRACE_DATABASE_URL"] = TEST_PG_URL
+    # Test lane is a MIGRATION_TEST_ADMIN usage of the privileged URL (T02).
+    env["TRACE_MIGRATION_DATABASE_URL"] = TEST_PG_URL
     env.pop("DATABASE_URL", None)
 
     def _alembic(*args: str) -> None:

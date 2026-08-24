@@ -99,6 +99,8 @@ def _migrate_schema():
     subprocess_env = {**os.environ}
     subprocess_env["TRACE_DATABASE_URL"] = TEST_PG_URL
     subprocess_env["TRACE_PHI_DATABASE_URL"] = TEST_PHI_PG_URL or TEST_PG_URL
+    # Test lane is a MIGRATION_TEST_ADMIN usage of the privileged URL (T02).
+    subprocess_env["TRACE_MIGRATION_DATABASE_URL"] = TEST_PG_URL
     subprocess_env.pop("DATABASE_URL", None)
     subprocess_env.pop("PHI_DATABASE_URL", None)
     result = subprocess.run(

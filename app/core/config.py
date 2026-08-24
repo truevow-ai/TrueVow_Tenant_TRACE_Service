@@ -40,6 +40,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("TRACE_PHI_DATABASE_URL", "PHI_DATABASE_URL"),
     )
+    # Privileged migration/admin connection (FND-003-R1 T02). Consumed ONLY by
+    # Alembic/operator tooling — never by runtime application code. Not aliased
+    # to DATABASE_URL on purpose: the two authorities must never conflate.
+    trace_migration_database_url: str | None = None
     # Application-level AES-256-GCM key for PHI columns (base64 or raw). In
     # production this is sourced from KMS/Secrets Manager, never committed.
     trace_phi_encryption_key: str = ""
@@ -133,6 +137,17 @@ class Settings(BaseSettings):
     def effective_phi_database_url(self) -> str:
         """Runtime PHI-store DB URL. Required; same fail-closed rule."""
         return self._require_postgres(self.trace_phi_database_url, "TRACE_PHI_DATABASE_URL")
+
+    @property
+    def effective_migration_database_url(self) -> str:
+        """Privileged admin URL for migration tooling only (fail-closed).
+
+        Runtime code must never call this; there is no fallback between the
+        privileged and runtime connections in either direction (T02).
+        """
+        return self._require_postgres(
+            self.trace_migration_database_url, "TRACE_MIGRATION_DATABASE_URL"
+        )
 
 
 settings = Settings()
