@@ -110,6 +110,41 @@ async def test_runtime_owns_nothing():
     assert owned == 0
 
 
+@pytest.mark.asyncio
+async def test_runtime_can_read_alembic_version(_setup_db):
+    async with async_session_maker() as session:
+        await _as_role(session)
+        rows = (
+            await session.execute(text("SELECT version_num FROM trace.alembic_version"))
+        ).fetchall()
+    assert len(rows) >= 1
+
+
+@pytest.mark.asyncio
+async def test_no_blanket_future_table_dml(_setup_db):
+    """A table created AFTER 0023 must carry zero runtime privileges.
+
+    Proves the least-privilege rule: no default-ACL contract exists, so
+    future migrations must grant the runtime role deliberately.
+    """
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "CREATE TABLE trace.probe_future_acl (id int PRIMARY KEY)"
+        ))
+    try:
+        async with engine.connect() as conn:
+            for action in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                granted = (
+                    await conn.execute(text(
+                        "SELECT has_table_privilege(:r, 'trace.probe_future_acl', :a)"
+                    ), {"r": ROLE, "a": action})
+                ).scalar_one()
+                assert granted is False, action
+    finally:
+        async with engine.begin() as conn:
+            await conn.execute(text("DROP TABLE IF EXISTS trace.probe_future_acl"))
+
+
 # ── Behavior under RLS as the runtime login ──────────────────────────
 
 

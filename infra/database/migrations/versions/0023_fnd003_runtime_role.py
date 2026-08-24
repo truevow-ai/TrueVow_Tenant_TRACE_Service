@@ -10,9 +10,13 @@ Contract:
 - SELECT/INSERT/UPDATE/DELETE on the 43 tenant-scoped tables
 - audit_log: INSERT only (SELECT/UPDATE/DELETE revoked)
 - jurisdiction_profiles (global reference): SELECT only
+- SELECT on ``trace.alembic_version`` (readiness revision probe)
 - USAGE, SELECT on all sequences in ``trace``
-- ALTER DEFAULT PRIVILEGES for the migrating admin so future migrations'
-  tables are usable by the runtime login without manual re-grants
+
+Least-privilege rule (T01-R1): there is deliberately NO default-ACL /
+future-table grant. Every future migration must grant the runtime login
+explicitly for the operational tables it introduces — unknown future
+tables start with zero runtime privileges.
 
 No password is set here (fail closed): credentials are provisioned by the
 operator secret-handling procedure during commissioning, never through
@@ -102,29 +106,15 @@ def upgrade() -> None:
         op.execute(f"REVOKE ALL ON trace.{table} FROM {_ROLE};")
         op.execute(f"GRANT SELECT ON trace.{table} TO {_ROLE};")
 
-    # 5. Sequences (uuid defaults are client-side; serial columns still exist).
-    op.execute(f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA trace TO {_ROLE};")
+    # 5. Readiness probe: revision row readable, nothing more.
+    op.execute(f"GRANT SELECT ON trace.alembic_version TO {_ROLE};")
 
-    # 6. Future migrations' objects remain reachable by the runtime login.
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES FOR CURRENT_USER IN SCHEMA trace "
-        f"GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {_ROLE};"
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES FOR CURRENT_USER IN SCHEMA trace "
-        f"GRANT USAGE, SELECT ON SEQUENCES TO {_ROLE};"
-    )
+    # 6. Sequences (uuid defaults are client-side; serial columns still exist).
+    op.execute(f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA trace TO {_ROLE};")
 
 
 def downgrade() -> None:
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES FOR CURRENT_USER IN SCHEMA trace "
-        f"REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM {_ROLE};"
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES FOR CURRENT_USER IN SCHEMA trace "
-        f"REVOKE USAGE, SELECT ON SEQUENCES FROM {_ROLE};"
-    )
+    op.execute(f"REVOKE SELECT ON trace.alembic_version FROM {_ROLE};")
     op.execute(f"REVOKE ALL ON ALL TABLES IN SCHEMA trace FROM {_ROLE};")
     op.execute(f"REVOKE ALL ON ALL SEQUENCES IN SCHEMA trace FROM {_ROLE};")
     op.execute(f"REVOKE ALL ON SCHEMA trace FROM {_ROLE};")
