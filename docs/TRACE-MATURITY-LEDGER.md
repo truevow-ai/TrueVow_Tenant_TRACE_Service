@@ -63,7 +63,7 @@
 | Unit | Open question |
 |---|---|
 | Clerk-org ↔ canonical TrueVow tenant UUID mapping | Mapping mechanism/platform ownership undecided (platform-scope, not TRACE-alone) |
-| Inbound-document trust-resolution contract | Who vouches tenant identity for uncommissioned callbacks (SaaS Admin relay? provider envelopes?) |
+| Inbound-document trust-resolution contract; DocuSeal completion-webhook and Client Portal tenant discovery (reclassified from FND-003-R1 T06 per owner review — provider authentication ≠ tenant authentication) | Who vouches tenant identity for uncommissioned callbacks (SaaS Admin relay? provider envelopes? grant-issuance flow?) |
 | Deeper SETTLE integration beyond demand-ready export | Contract undefined |
 | TRACE → COMMAND contract | Explicitly NOT DEFINED — do not invent |
 | ModernBERT long-context evaluation; historical flag concepts as new capabilities | IDEA/TBD — requires explicit product re-approval before any routing |

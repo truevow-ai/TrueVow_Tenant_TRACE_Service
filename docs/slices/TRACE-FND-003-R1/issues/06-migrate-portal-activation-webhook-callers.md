@@ -1,13 +1,13 @@
-# 06: Migrate portal/activation/webhook trusted callers
+# 06: Migrate trusted callers — activation envelope + attorney signing/send
 
-**What to build:** Trusted webhook and portal surfaces open tenant context from verified authorities: the Matter activation handler derives context from the signed envelope's verified `tenant_id`; client portal routes use their granted client-access identity mapping to firm context; signing flow sessions carry the matter's firm context. No untrusted external identifier ever drives a privileged lookup.
+**What to build:** Only callers already holding a trustworthy tenant identity before their first tenant-table read. The Matter activation handler derives context from the signed envelope's verified `tenant_id`; the DocuSeal attorney-side `/send` flow uses authenticated `ctx.firm_id` (including its `_get_case(firm_id)` helper path). Provider-authenticated webhook discovery and client-portal access-projection discovery are **explicitly out of this ticket** (reclassified to 09 — tenant-discovery-via-tenant-table is circular under real RLS).
 
 **Blocked by:** 03 (tenant-context helper), 04 (session inventory ledger).
 
 **Status:** ready-for-agent
 
 - [ ] Activation projection runs entirely under envelope-verified tenant context via the canonical helper
-- [ ] Client portal routes resolve firm context from the access grant, not raw path parameters alone
-- [ ] Signing-path sessions carry the case's firm context before any tenant-row access
-- [ ] Ledger rows for this batch flipped; guarded suite green
+- [ ] Attorney signing `/send` path carries `ctx.firm_id` via request-scoped dep or helper
+- [ ] Ledger rows for this reduced batch flipped; guarded suite green
 - [ ] Idempotent duplicate-event behavior unchanged
+- [ ] No site migrated whose tenant identity requires a pre-context tenant-table lookup

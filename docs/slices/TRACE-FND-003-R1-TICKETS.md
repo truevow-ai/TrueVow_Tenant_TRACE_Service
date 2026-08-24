@@ -14,7 +14,7 @@
 | 06 | [Migrate portal/activation/webhook trusted callers](issues/06-migrate-portal-activation-webhook-callers.md) | 03, 04 | Envelope/grant-derived context for activation, portal, signing |
 | 07 | [Migrate services + shared-foundation stores](issues/07-migrate-services-shared-foundation.md) | 03, 04 | Service-layer + event store/consent/policy stores on helper; GLOBAL_READ_ONLY justifications |
 | 08 | [Audit writer under real RLS](issues/08-audit-writer-under-rls.md) | **01, 03** | INSERT-only persistence under RLS proven against actual 0023 contract |
-| 09 | [Fail-close untrusted-context callers](issues/09-failclose-untrusted-context-callers.md) | **06, 07** | `BLOCKED_INTERNAL_TENANT_CONTEXT`; no bypass role / definer resolver; PARTIAL/uncommissioned recorded |
+| 09 | [Fail-close unresolved tenant-context surfaces](issues/09-failclose-untrusted-context-callers.md) | **06, 07** | `BLOCKED_INTERNAL_TENANT_CONTEXT` on all 13 discovery-circular/untrusted sites (inbound ×5, fax-status, signing webhook, portal resolution ×6); no bypass role / definer resolver; PARTIAL/uncommissioned recorded |
 | 10 | [Contract: retire bypass patterns](issues/10-contract-retire-bypass-patterns.md) *(contract)* | 05–09 | Zero operational direct opens; CI guard; INVALID_BYPASS_PATH = 0 |
 | 11 | [Runtime-role /ready evidence](issues/11-runtime-role-readiness-evidence.md) | 02 | Live identity + flags in readiness; loud failure on wrong identity |
 | 12 | [Guarded non-bypass adversarial acceptance](issues/12-guarded-nonbypass-adversarial-acceptance.md) | 01, 10 | Full guarded suite AS restricted login; adversarial set green; 0 failed/skipped |

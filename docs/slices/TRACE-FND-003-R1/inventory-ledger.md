@@ -19,14 +19,14 @@
 | :58,:81,:106,:127 | routes/liens.py | `ctx.firm_id` | REQUEST_SCOPED | lien CRUD semantics unchanged |
 | :80,:116,:354 | routes/evidence.py | `ctx.firm_id` | REQUEST_SCOPED | fact-review authorization order preserved |
 
-## Batch 06 — Portal / activation / webhook-trusted callers (10 sites)
+## Batch 06 — Trusted callers only (3 sites; reclassified per owner review)
+
+Provider authentication ≠ tenant authentication. Surfaces whose tenant identity must itself be *discovered* via a tenant-table query cannot be trusted callers under real RLS (circularity) — they moved to the Ticket 09 fail-close set.
 
 | Site(s) | File | Context source | Target class | Invariant |
 |---|---|---|---|---|
-| :67,:111,:139,:180,:218,:250 | routes/client_portal.py | access-grant → firm mapping | INTERNAL_SCOPED | grant verification precedes any tenant read |
-| :43,:81,:129 | routes/signing.py | HMAC-verified DocuSeal submission → case → firm | INTERNAL_SCOPED | vendor-signed lookup is the trusted authority; token never logged |
 | :157 | services/matter_activation.py | signed envelope `tenant_id` (9-ref manifest validated) | INTERNAL_SCOPED | idempotency keyed on event_id; rejection conditions precede projection |
-| :74 | routes/webhooks.py | **none trusted today** | **INVALID_BYPASS_PATH** | "without RLS / system role" comment is the defect; → Ticket 09 |
+| :43,:81 | routes/signing.py | authenticated `ctx.firm_id` (attorney `/send` flow + `_get_case(firm_id)` helper) | REQUEST_SCOPED / INTERNAL_SCOPED | attorney-side only; webhook handler (:115+) excluded |
 
 ## Batch 07 — Services + shared-foundation stores (27 sites)
 
@@ -48,12 +48,16 @@
 | :75 | core/audit.py | action-carried `firm_id` | Ticket 08 | INSERT-only under real RLS |
 | :110 | main.py `/ready` | n/a — schema probes only (`LIMIT 0`, alembic_version) | **GLOBAL_READ_ONLY** (no change; Ticket 11 extends endpoint) | never returns tenant rows |
 
-## Fail-close set (Ticket 09)
+## Fail-close set (Ticket 09) — 13 sites
 
-| Site(s) | File | Why untrusted | Current class → target |
-|---|---|---|---|
-| :88,:146,:189,:275,:292 | services/inbound.py | external identifiers (fax/email headers) drive lookups; GAP-1/GAP-2 fail-open auth | INVALID_BYPASS_PATH → fail-closed `BLOCKED_INTERNAL_TENANT_CONTEXT` |
-| :74 | routes/webhooks.py | same trust deficit (fax status) | INVALID_BYPASS_PATH → fail-closed |
+All surfaces that need tenant-owned data but hold no trustworthy tenant UUID before their first tenant-table access. R1 behavior: raise `BLOCKED_INTERNAL_TENANT_CONTEXT`; long-term resolution = Class E trust-resolution contract.
+
+| Site(s) | File | Why untrusted |
+|---|---|---|
+| :88,:146,:189,:275,:292 | services/inbound.py | external identifiers (fax/email headers) drive lookups; GAP-1/GAP-2 fail-open auth |
+| :74 | routes/webhooks.py | fax-status callback; "without RLS / system role" expectation is the defect |
+| :129 | routes/signing.py | DocuSeal completion webhook: verified provider signature, but `submission_id → case/firm` discovery requires tenant-scoped read first |
+| :67,:111,:139,:180,:218,:250 | routes/client_portal.py | `_verify_client_access()` receives caller-supplied identity/matter ids and discovers tenant via ClientAccessProjection — circular under RLS; `/access` same pattern |
 
 ## Non-runtime lanes (classified, out of scope)
 
@@ -63,4 +67,5 @@
 
 1. **Ticket 05 stays whole** — one uniform context pattern (authenticated `ctx.firm_id`), 12 sites, reviewable diff. No 05A/05B split.
 2. **Watch-item:** Batch 07 is the largest (27 sites). It is internally uniform (helper adoption), but if its diff proves unreviewable at implementation time, split 07A services / 07B shared-foundation — sizing adjustment, no architecture impact, recorded here when done.
-3. Baseline: **INVALID_BYPASS_PATH = 2** (inbound.py cluster, webhooks.py:74) → must be 0 after Ticket 09.
+3. Baseline after reclassification: **INVALID_BYPASS_PATH = 13 sites** (inbound.py cluster ×5, webhooks.py:74, signing.py:129, client_portal.py ×6) → must be 0 after Ticket 09.
+4. Reclassification history: v1.1 of this ledger — owner review moved DocuSeal-webhook discovery and Client Portal access-projection discovery out of Ticket 06 into Ticket 09 (provider authentication ≠ tenant authentication; tenant-discovery-via-tenant-table is circular under real RLS).

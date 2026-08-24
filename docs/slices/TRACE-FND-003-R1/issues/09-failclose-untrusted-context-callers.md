@@ -1,13 +1,13 @@
-# 09: Fail-close untrusted-context callers
+# 09: Fail-close unresolved tenant-context surfaces
 
-**What to build:** Runtime paths that need tenant-owned data but lack a trustworthy tenant identity — fax delivery-status callbacks and inbound email/fax processing as they stand — raise the explicit `BLOCKED_INTERNAL_TENANT_CONTEXT` condition instead of touching tenant rows unscoped. No BYPASSRLS role, no migration/admin connection, no `SECURITY DEFINER` resolver is introduced. Affected surfaces are recorded as fail-closed/PARTIAL/uncommissioned pending the successor integration-security slice (which also closes GAP-1/GAP-2).
+**What to build:** Every runtime surface that needs tenant-owned data but holds no trustworthy tenant UUID before its first tenant-table access raises `BLOCKED_INTERNAL_TENANT_CONTEXT` instead of touching tenant rows unscoped. In scope (13 ledger sites): inbound email, inbound fax, fax-status callback, **DocuSeal completion-webhook tenant discovery** (provider signature authenticates the vendor, not the tenant), **Client Portal initial access/tenant resolution** (`_verify_client_access()` discovers tenant from caller-supplied identifiers via ClientAccessProjection — circular under RLS). No BYPASSRLS role, no migration/admin connection, no `SECURITY DEFINER` resolver is introduced. A surface is migrated out of this set only if it already possesses a trustworthy tenant UUID before any tenant-table access.
 
 **Blocked by:** 06, 07.
 
 **Status:** ready-for-agent
 
-- [ ] Untrusted-context paths raise `BLOCKED_INTERNAL_TENANT_CONTEXT`; no tenant-row access occurs on those paths
-- [ ] Tests prove fail-closed behavior: no row reads/writes without trusted context
+- [ ] All 13 sites raise `BLOCKED_INTERNAL_TENANT_CONTEXT`; no tenant-row access occurs on those paths without prior trusted UUID
+- [ ] Tests prove fail-closed behavior per surface class (inbound, fax-status, signing webhook, portal resolution)
 - [ ] No new privileged lookup mechanism, special system role, or definer function appears in the diff
-- [ ] Ledger rows for these sites classified fail-closed (not INVALID_BYPASS_PATH)
-- [ ] PARTIAL/uncommissioned status recorded for affected callbacks with successor-slice pointer
+- [ ] Ledger rows reclassified fail-closed; INVALID_BYPASS_PATH count = 0 contribution confirmed with Ticket 10
+- [ ] PARTIAL/uncommissioned status recorded for affected surfaces with successor Class-E trust-resolution pointer
