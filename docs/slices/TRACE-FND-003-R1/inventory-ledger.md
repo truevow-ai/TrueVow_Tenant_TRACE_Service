@@ -65,6 +65,8 @@ All surfaces that need tenant-owned data but hold no trustworthy tenant UUID bef
 
 ## Verdicts
 
+0. **Progress log** (evidence SHAs on `trace/TRACE-FND-003`): T01 `18745cb` → T01-R1 `0a52a14` · T03 `787f6a4` · T02 `6b3c058` · **T05 MIGRATED `173f597`** (batch-05 rows = TENANT_REQUEST_SCOPED/INTERNAL_SCOPED via canonical seam; guard test `test_fnd003_r1_session_guard.py` now enforces zero bare opens in qa/liens/evidence routes).
+
 1. **Ticket 05 stays whole** — one uniform context pattern (authenticated `ctx.firm_id`), 12 sites, reviewable diff. No 05A/05B split.
 2. **Watch-item:** Batch 07 is the largest (27 sites). It is internally uniform (helper adoption), but if its diff proves unreviewable at implementation time, split 07A services / 07B shared-foundation — sizing adjustment, no architecture impact, recorded here when done.
 3. Baseline after reclassification: **INVALID_BYPASS_PATH = 13 sites** (inbound.py cluster ×5, webhooks.py:74, signing.py:129, client_portal.py ×6) → must be 0 after Ticket 09.
