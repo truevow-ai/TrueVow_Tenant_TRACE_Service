@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.audit import write_audit
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.lien import Lien
 
@@ -55,7 +55,9 @@ async def create_lien(
         status=body.status,
         notes=body.notes,
     )
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         session.add(lien)
         await session.commit()
 
@@ -78,7 +80,9 @@ async def list_liens(
     ctx: AuthContext = Depends(get_current_context),
 ) -> dict:
     firm_uuid = uuid.UUID(ctx.firm_id)
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         result = await session.execute(
             select(Lien).where(Lien.case_id == case_id, Lien.firm_id == firm_uuid)
         )
@@ -103,7 +107,9 @@ async def get_lien(
     ctx: AuthContext = Depends(get_current_context),
 ) -> dict:
     firm_uuid = uuid.UUID(ctx.firm_id)
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         lien = (await session.execute(
             select(Lien).where(Lien.lien_id == lien_id, Lien.case_id == case_id, Lien.firm_id == firm_uuid)
         )).scalar_one_or_none()
@@ -124,7 +130,9 @@ async def update_lien(
     ctx: AuthContext = Depends(get_current_context),
 ) -> dict:
     firm_uuid = uuid.UUID(ctx.firm_id)
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         lien = (await session.execute(
             select(Lien).where(Lien.lien_id == lien_id, Lien.case_id == case_id, Lien.firm_id == firm_uuid)
         )).scalar_one_or_none()

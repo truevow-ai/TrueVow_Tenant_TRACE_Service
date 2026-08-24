@@ -19,7 +19,7 @@ from sqlalchemy import select
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.audit import write_audit
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.case import Case
 from app.services.evidence import get_evidence_service
@@ -77,7 +77,7 @@ class DismissSignalInput(BaseModel):
 
 
 async def _get_case(case_id: uuid.UUID, firm_id: uuid.UUID) -> Case:
-    async with async_session_maker() as session:
+    async with internal_tenant_session(tenant_id=firm_id) as session:
         result = await session.execute(
             select(Case).where(Case.case_id == case_id, Case.firm_id == firm_id)
         )
@@ -113,7 +113,9 @@ async def get_fact(
 
     from app.models.evidence_fact import EvidenceFact
 
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         result = await session.execute(
             select(EvidenceFact).where(
                 EvidenceFact.fact_id == fact_id,
@@ -351,7 +353,9 @@ async def rescan_evidence(
     firm_uuid = uuid.UUID(ctx.firm_id)
     await _get_case(case_id, firm_uuid)
 
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         from app.models.document import Document as DocModel
 
         docs_result = await session.execute(

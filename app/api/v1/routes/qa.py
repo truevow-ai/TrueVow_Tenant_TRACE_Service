@@ -15,7 +15,7 @@ from sqlalchemy import select, func
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.audit import write_audit
-from app.core.database import async_session_maker, get_db
+from app.core.database import get_db, internal_tenant_session
 from app.core.logging import get_logger
 from app.models.case import Case
 from app.models.document import Document
@@ -54,7 +54,7 @@ def _plain_english_stage(db_stage: str) -> str:
 
 
 async def _get_case(case_id: uuid.UUID, firm_id: uuid.UUID) -> Case:
-    async with async_session_maker() as session:
+    async with internal_tenant_session(tenant_id=firm_id) as session:
         result = await session.execute(
             select(Case).where(Case.case_id == case_id, Case.firm_id == firm_id)
         )
@@ -87,7 +87,9 @@ async def get_chronology(
     total_flags = 0
     annotated_flags = 0
 
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         priority_unannotated = (
             await session.execute(
                 select(func.count()).where(
@@ -154,7 +156,9 @@ async def get_document_page(
     firm_uuid = uuid.UUID(ctx.firm_id)
     await _get_case(case_id, firm_uuid)
 
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         doc = (await session.execute(
             select(Document).where(Document.document_id == document_id)
         )).scalar_one_or_none()
@@ -229,7 +233,9 @@ async def approve_demand_ready(
         )
 
     # Check: any PRIORITY flags without attorney annotation?
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         result = await session.execute(
             select(func.count()).where(
                 EventNode.case_id == case_id,
@@ -249,7 +255,9 @@ async def approve_demand_ready(
     case.approval_timestamp = None  # set to now()
     case.approval_text = body.confirmation_text
 
-    async with async_session_maker() as session:
+    async with internal_tenant_session(
+        tenant_id=firm_uuid, user_id=ctx.user_id, role=ctx.role
+    ) as session:
         session.add(case)
         await session.commit()
 
