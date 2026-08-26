@@ -98,16 +98,26 @@ async def fax_status(
                 provider.retrieval_status = "PENDING"
         await session.commit()
 
-    await write_audit(
-        actor_id=None,
-        actor_type="SYSTEM",
-        action="fax.status_update",
-        resource_type="requests",
-        resource_id=None,
-        case_id=case_id,
-        correlation_id=getattr(request.state, "correlation_id", None),
-        details={"fax_transmission_id": str(transmission_id), "status": mapped},
-    )
+    # T08 fail-closed: this system-level callback has no authenticated firm
+    # context (T09 temporary safety state — session at :74 stays bypass until
+    # its trusted routing contract lands). Audit is best-effort: a row that
+    # cannot be written under RLS is skipped, never silently unscoped.
+    try:
+        await write_audit(
+            actor_id=None,
+            actor_type="SYSTEM",
+            action="fax.status_update",
+            resource_type="requests",
+            resource_id=None,
+            case_id=case_id,
+            correlation_id=getattr(request.state, "correlation_id", None),
+            details={"fax_transmission_id": str(transmission_id), "status": mapped},
+        )
+    except Exception:
+        logger.warning(
+            "fax status audit skipped (no tenant context)",
+            extra={"transmission_id": str(transmission_id)},
+        )
     return {"status": mapped}
 
 

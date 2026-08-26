@@ -11,7 +11,7 @@ import ipaddress
 import uuid
 from typing import Any
 
-from app.core.database import async_session_maker
+from app.core.database import BlockedInternalTenantContext, internal_tenant_session
 from app.core.logging import get_logger
 from app.models.audit import AuditLog
 
@@ -72,6 +72,16 @@ async def write_audit(
         correlation_id=correlation_id,
         details=details,
     )
-    async with async_session_maker() as session:
+    # FND-003-R1 T08: persist UNDER real RLS — the write carries explicit
+    # tenant context from the audited action and executes as the runtime
+    # login (INSERT-only on audit_log). Fail closed without a firm context:
+    # an unscoped audit row can never exist.
+    if firm_id is None:
+        raise BlockedInternalTenantContext(
+            "audit write requires explicit firm context"
+        )
+    async with internal_tenant_session(
+        tenant_id=str(firm_id), user_id=actor_id
+    ) as session:
         session.add(entry)
         await session.commit()
