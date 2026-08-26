@@ -67,7 +67,7 @@ async def main():
     redacted = [{"redacted_text": p.redacted_text, "page_number": p.page_number, 
                  "document_id": str(uuid.uuid4()), "facility_name": "Cedars-Sinai ER"}
                 for p in ocr.pages if p.redacted_text]
-    chron = await build_chronology(CASE_ID, redacted)
+    chron = await build_chronology(CASE_ID, uuid.UUID("11111111-1111-4111-8111-111111111111"), redacted)
     print(f"\n[4] Chronology: {chron.total_entries} entries")
     for e in chron.entries:
         print(f"    {e.event_date.date()} | {e.event_type.value} | {e.clinical_description[:70]}")

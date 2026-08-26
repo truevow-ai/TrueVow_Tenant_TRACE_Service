@@ -38,7 +38,8 @@ async def _make_case(firm_id: uuid.UUID) -> uuid.UUID:
 
 @pytest.mark.asyncio
 async def test_extraction_confidence_high_medium_low():
-    case_id = await _make_case(uuid.uuid4())
+    firm = uuid.uuid4()
+    case_id = await _make_case(firm)
     fake = FakeNPIClient(
         {
             "Cedars Sinai": [
@@ -56,7 +57,7 @@ async def test_extraction_confidence_high_medium_low():
     )
 
     count = await extract_providers(
-        case_id, ["Cedars Sinai", "Dr Smith", "Unknown Clinic"], "CA", npi_client=fake
+        case_id, firm, ["Cedars Sinai", "Dr Smith", "Unknown Clinic"], "CA", npi_client=fake
     )
     assert count == 3
 
@@ -72,19 +73,22 @@ async def test_extraction_confidence_high_medium_low():
 
 @pytest.mark.asyncio
 async def test_no_hints_creates_nothing():
-    case_id = await _make_case(uuid.uuid4())
-    assert await extract_providers(case_id, [], "CA") == 0
+    firm = uuid.uuid4()
+    case_id = await _make_case(firm)
+    assert await extract_providers(case_id, firm, [], "CA") == 0
 
 
 @pytest.mark.asyncio
 async def test_npi_failure_falls_back_to_low_confidence():
-    case_id = await _make_case(uuid.uuid4())
+    firm = uuid.uuid4()
+    case_id = await _make_case(firm)
 
     class BoomClient:
         async def search(self, name, state=None, limit=5):
             raise RuntimeError("NPI down")
 
-    count = await extract_providers(case_id, ["Some Provider"], "CA", npi_client=BoomClient())
+    firm = uuid.uuid4()
+    count = await extract_providers(case_id, firm, ["Some Provider"], "CA", npi_client=BoomClient())
     assert count == 1
     async with async_session_maker() as session:
         row = (await session.execute(select(Provider).where(Provider.case_id == case_id))).scalar_one()

@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.contradiction import ContradictionPair
 from app.models.document import Document
@@ -58,6 +58,7 @@ class EvidenceService:
 
     async def extract_facts_from_pages(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
         redacted_pages: list[dict[str, Any]],
     ) -> ExtractionResult:
@@ -114,19 +115,20 @@ class EvidenceService:
                     extraction_model_version="1.7.0" if nlp._use_openmed else "regex-v1",
                 )
 
-                await self.persist_fact(case_id, extracted)
+                await self.persist_fact(firm_id, case_id, extracted)
                 result.facts_created += 1
 
         return result
 
     async def persist_fact(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
         extracted: ExtractedFact,
     ) -> EvidenceFact:
         """Create a SourceLocation and EvidenceFact in a single transaction."""
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             location = SourceLocation(
                 document_id=extracted.document_id,
                 page_number=extracted.page_number,
@@ -155,6 +157,7 @@ class EvidenceService:
 
     async def get_facts_for_case(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
         session: AsyncSession | None = None,
     ) -> list[EvidenceFact]:
@@ -170,24 +173,25 @@ class EvidenceService:
 
         if session:
             return await _query(session)
-        async with async_session_maker() as s:
+        async with internal_tenant_session(tenant_id=firm_id) as s:
             return await _query(s)
 
     async def detect_contradictions(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
     ) -> int:
         """Detect contradictions among facts in a case. Preserves, doesn't overwrite.
 
         Returns number of new contradiction pairs found.
         """
-        facts = await self.get_facts_for_case(case_id)
+        facts = await self.get_facts_for_case(firm_id, case_id)
         if len(facts) < 2:
             return 0
 
         new_contradictions = 0
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             existing_pairs = await session.execute(
                 select(ContradictionPair).where(ContradictionPair.case_id == case_id)
             )
@@ -277,16 +281,17 @@ class EvidenceService:
 
     async def generate_missing_evidence_signals(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
     ) -> int:
         """Generate signals for expected records that are missing.
 
         Returns number of new signals generated.
         """
-        facts = await self.get_facts_for_case(case_id)
+        facts = await self.get_facts_for_case(firm_id, case_id)
         new_signals = 0
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             document_ids: set[uuid.UUID] = set()
             doc_result = await session.execute(
                 select(Document.document_id).where(Document.case_id == case_id)
@@ -447,6 +452,7 @@ class EvidenceService:
 
     async def build_chronology_from_facts(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
     ) -> dict[str, Any]:
         """Build a source-linked chronology from persisted EvidenceFacts.
@@ -455,7 +461,7 @@ class EvidenceService:
         carrying full provenance: source document, page, extraction method,
         confidence, review status, and contradictions.
         """
-        facts = await self.get_facts_for_case(case_id)
+        facts = await self.get_facts_for_case(firm_id, case_id)
 
         entries: list[dict[str, Any]] = []
         for fact in facts:
@@ -491,11 +497,12 @@ class EvidenceService:
 
     async def get_contradictions_for_case(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
     ) -> list[dict[str, Any]]:
         """Get all contradiction pairs for a case with full fact details."""
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             result = await session.execute(
                 select(ContradictionPair).where(ContradictionPair.case_id == case_id)
             )
@@ -533,11 +540,12 @@ class EvidenceService:
 
     async def get_missing_evidence_for_case(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
     ) -> list[dict[str, Any]]:
         """Get all missing-evidence signals for a case."""
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             result = await session.execute(
                 select(MissingEvidenceSignal)
                 .where(MissingEvidenceSignal.case_id == case_id)
@@ -562,6 +570,7 @@ class EvidenceService:
 
     async def rescan_case(
         self,
+        firm_id: uuid.UUID,
         case_id: uuid.UUID,
         redacted_pages: list[dict[str, Any]],
     ) -> ExtractionResult:
@@ -569,9 +578,9 @@ class EvidenceService:
 
         This is the main entry point called after new documents arrive or OCR completes.
         """
-        result = await self.extract_facts_from_pages(case_id, redacted_pages)
-        result.contradictions_found = await self.detect_contradictions(case_id)
-        result.missing_evidence_signals = await self.generate_missing_evidence_signals(case_id)
+        result = await self.extract_facts_from_pages(firm_id, case_id, redacted_pages)
+        result.contradictions_found = await self.detect_contradictions(firm_id, case_id)
+        result.missing_evidence_signals = await self.generate_missing_evidence_signals(firm_id, case_id)
         return result
 
 

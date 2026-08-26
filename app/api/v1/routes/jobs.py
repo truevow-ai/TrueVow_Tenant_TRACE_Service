@@ -5,6 +5,8 @@ Exposed as admin endpoints for cron/external scheduler invocation.
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, Request
 
 from app.auth.deps import AuthContext, get_current_context
@@ -22,6 +24,6 @@ async def trigger_followup_scheduler(
     ctx: AuthContext = Depends(get_current_context),
 ) -> dict:
     """Run the fax follow-up scheduler. Triggered by cron or external scheduler."""
-    actions = await run_followup_scheduler()
+    actions = await run_followup_scheduler(firm_id=uuid.UUID(ctx.firm_id))
     logger.info("Follow-up scheduler completed: %s", actions)
     return {"status": "completed", "actions": actions}

@@ -145,6 +145,7 @@ class ChronologyResult:
 
 async def build_chronology(
     case_id: uuid.UUID,
+    firm_id: uuid.UUID,
     redacted_pages: list[dict],
 ) -> ChronologyResult:
     """Build chronology from source-linked EvidenceFacts where available.
@@ -156,12 +157,12 @@ async def build_chronology(
     from app.services.evidence import get_evidence_service
     from app.services.nlp import create_openmed_service
     from app.models.evidence_fact import EvidenceFact
-    from app.core.database import async_session_maker
+    from app.core.database import internal_tenant_session
 
     evidence = get_evidence_service()
 
     # Check if facts already exist for this case
-    async with async_session_maker() as session:
+    async with internal_tenant_session(tenant_id=firm_id) as session:
         from sqlalchemy import select, func
         count_result = await session.execute(
             select(func.count()).select_from(EvidenceFact).where(EvidenceFact.case_id == case_id)
@@ -171,7 +172,7 @@ async def build_chronology(
     result = ChronologyResult(case_id=case_id)
 
     if fact_count > 0:
-        facts = await evidence.get_facts_for_case(case_id)
+        facts = await evidence.get_facts_for_case(firm_id, case_id)
         result.total_entries = len(facts)
         seen_keys: set[tuple] = set()
 
@@ -244,9 +245,9 @@ async def build_chronology(
     # Persist extracted facts as EvidenceFacts for future provenance
     if redacted_pages and result.entries:
         try:
-            await evidence.extract_facts_from_pages(case_id, redacted_pages)
-            await evidence.detect_contradictions(case_id)
-            await evidence.generate_missing_evidence_signals(case_id)
+            await evidence.extract_facts_from_pages(firm_id, case_id, redacted_pages)
+            await evidence.detect_contradictions(firm_id, case_id)
+            await evidence.generate_missing_evidence_signals(firm_id, case_id)
         except Exception:
             pass
 

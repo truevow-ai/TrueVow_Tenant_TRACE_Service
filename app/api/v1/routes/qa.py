@@ -77,10 +77,10 @@ async def get_chronology(
     from app.services.chronology import build_chronology
 
     evidence = get_evidence_service()
-    chronology = await evidence.build_chronology_from_facts(case_id)
+    chronology = await evidence.build_chronology_from_facts(firm_uuid, case_id)
 
     if not chronology["entries"]:
-        result = await build_chronology(case_id, redacted_pages=[])
+        result = await build_chronology(case_id, firm_uuid, redacted_pages=[])
         chronology = result.to_api_response()
 
     priority_unannotated = 0
@@ -311,11 +311,16 @@ async def case_export(
 ):
     """Export demand-ready case as PDF or JSON with full source provenance."""
     try:
-        uuid.UUID(ctx.firm_id)
+        firm_uuid = uuid.UUID(ctx.firm_id)
     except (ValueError, TypeError):
         raise HTTPException(status_code=403)
 
-    case = (await db.execute(select(Case).where(Case.case_id == case_id))).scalar_one_or_none()
+    # FND-003-R1 T07A: explicit firm isolation on the export path.
+    case = (
+        await db.execute(
+            select(Case).where(Case.case_id == case_id, Case.firm_id == firm_uuid)
+        )
+    ).scalar_one_or_none()
     if case is None:
         raise HTTPException(status_code=404, detail="Case not found.")
 
@@ -330,9 +335,9 @@ async def case_export(
     from fastapi.responses import Response
 
     evidence = get_evidence_service()
-    chronology = await evidence.build_chronology_from_facts(case_id)
-    contradictions = await evidence.get_contradictions_for_case(case_id)
-    missing_evidence = await evidence.get_missing_evidence_for_case(case_id)
+    chronology = await evidence.build_chronology_from_facts(firm_uuid, case_id)
+    contradictions = await evidence.get_contradictions_for_case(firm_uuid, case_id)
+    missing_evidence = await evidence.get_missing_evidence_for_case(firm_uuid, case_id)
 
     exporter = ChronologyExporter()
 

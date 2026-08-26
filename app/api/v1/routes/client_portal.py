@@ -117,7 +117,10 @@ async def get_matter(
             raise HTTPException(status_code=404, detail="Matter not found")
 
     evidence = get_evidence_service()
-    chronology = await evidence.build_chronology_from_facts(matter_id)
+    # FND-003-R1 T07A: threaded tenant from the existing (defective) caller-supplied
+    # discovery — no new trust claim. The discovery itself is redesigned under
+    # TRACE-PORTAL-TRUST-001; this site stays on that ticket's pending list.
+    chronology = await evidence.build_chronology_from_facts(ctx.tenant_id, matter_id)
 
     return {
         "matter_id": str(matter_id),

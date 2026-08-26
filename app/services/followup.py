@@ -10,11 +10,12 @@ All times configurable via env vars with sensible defaults.
 from __future__ import annotations
 
 import os
+import uuid as _uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
 
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.provider import Provider
 from app.services.cover_sheet import CoverSheetGenerator
@@ -28,8 +29,10 @@ NOTIFY_DAY = int(os.getenv("FAX_NOTIFY_DAY", "25"))
 ESCALATE_DAY = int(os.getenv("FAX_ESCALATE_DAY", "30"))
 
 
-async def run_followup_scheduler() -> dict:
-    """Check all cases with outstanding record requests and apply follow-up rules.
+async def run_followup_scheduler(firm_id: _uuid.UUID) -> dict:
+    """Check the firm's cases with outstanding record requests and apply
+    follow-up rules. Firm-scoped under RLS (FND-003-R1 T07A): a scheduler
+    run can only ever touch providers of the authenticated caller's firm.
 
     Returns summary of actions taken. Actually sends follow-up faxes.
     """
@@ -38,7 +41,7 @@ async def run_followup_scheduler() -> dict:
     fax = create_fax_service()
     generator = CoverSheetGenerator()
 
-    async with async_session_maker() as session:
+    async with internal_tenant_session(tenant_id=firm_id) as session:
         result = await session.execute(
             select(Provider).where(
                 Provider.retrieval_status == "REQUESTED",

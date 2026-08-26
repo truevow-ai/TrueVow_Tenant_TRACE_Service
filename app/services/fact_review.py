@@ -16,7 +16,7 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy import select
 
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.evidence_fact import EvidenceFact
 from app.models.fact_version import FactVersion
@@ -52,6 +52,7 @@ class FactReviewService:
 
     async def set_review_status(
         self,
+        firm_id: uuid.UUID,
         fact_id: uuid.UUID,
         new_status: str,
         reviewer_id: uuid.UUID | None = None,
@@ -65,7 +66,7 @@ class FactReviewService:
                 error=f"Invalid review status. Must be one of: {', '.join(sorted(self.VALID_REVIEW_STATUSES))}",
             )
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             result = await session.execute(
                 select(EvidenceFact).where(EvidenceFact.fact_id == fact_id)
             )
@@ -114,11 +115,12 @@ class FactReviewService:
 
     async def edit_fact(
         self,
+        firm_id: uuid.UUID,
         request: EditFactRequest,
     ) -> ReviewResult:
         """Edit fact fields. Creates a version snapshot before applying changes."""
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             result = await session.execute(
                 select(EvidenceFact).where(EvidenceFact.fact_id == request.fact_id)
             )
@@ -190,10 +192,11 @@ class FactReviewService:
 
     async def get_fact_history(
         self,
+        firm_id: uuid.UUID,
         fact_id: uuid.UUID,
     ) -> list[dict]:
         """Get the full version history of a fact."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             result = await session.execute(
                 select(FactVersion)
                 .where(FactVersion.fact_id == fact_id)
@@ -219,6 +222,7 @@ class FactReviewService:
 
     async def resolve_contradiction(
         self,
+        firm_id: uuid.UUID,
         contradiction_id: uuid.UUID,
         resolution_status: str,
         resolved_by: uuid.UUID | None = None,
@@ -229,7 +233,7 @@ class FactReviewService:
         if resolution_status not in valid:
             raise ValueError(f"Invalid resolution status: {resolution_status}")
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             from app.models.contradiction import ContradictionPair
 
             result = await session.execute(
@@ -256,12 +260,13 @@ class FactReviewService:
 
     async def dismiss_missing_evidence(
         self,
+        firm_id: uuid.UUID,
         signal_id: uuid.UUID,
         resolved_by: uuid.UUID | None = None,
         note: str | None = None,
     ) -> dict:
         """Mark a missing-evidence signal as resolved."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=firm_id) as session:
             from app.models.missing_evidence import MissingEvidenceSignal
 
             result = await session.execute(

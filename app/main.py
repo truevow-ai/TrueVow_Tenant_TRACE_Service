@@ -178,7 +178,7 @@ async def run_pipeline_test():
     from app.services.export import ChronologyExporter
 
     redacted = [{"redacted_text": clinical_text, "page_number": 1, "document_id": str(uuid.uuid4())}]
-    chron = await build_chronology(CASE_ID, redacted)
+    chron = await build_chronology(CASE_ID, uuid.UUID("11111111-1111-4111-8111-111111111111"), redacted)
     
     # Try flags, handle gracefully
     flags = []

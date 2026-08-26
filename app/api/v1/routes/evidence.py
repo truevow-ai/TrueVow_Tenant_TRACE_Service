@@ -97,7 +97,7 @@ async def list_facts(
     await _get_case(case_id, firm_uuid)
 
     service = get_evidence_service()
-    chronology = await service.build_chronology_from_facts(case_id)
+    chronology = await service.build_chronology_from_facts(firm_uuid, case_id)
     return chronology
 
 
@@ -128,7 +128,7 @@ async def get_fact(
         raise HTTPException(status_code=404, detail="Fact not found.")
 
     review_service = get_fact_review_service()
-    history = await review_service.get_fact_history(fact_id)
+    history = await review_service.get_fact_history(firm_uuid, fact_id)
 
     source = fact.source_location if fact.source_location else None
     return {
@@ -175,7 +175,7 @@ async def review_fact(
 
     service = get_fact_review_service()
     reviewer = uuid.UUID(ctx.user_id) if ctx.user_id else None
-    result = await service.set_review_status(fact_id, body.status, reviewer, body.review_note)
+    result = await service.set_review_status(firm_uuid, fact_id, body.status, reviewer, body.review_note)
 
     if result.error:
         raise HTTPException(status_code=400, detail=result.error)
@@ -221,7 +221,7 @@ async def edit_fact(
         changed_by=uuid.UUID(ctx.user_id) if ctx.user_id else None,
         change_reason=body.change_reason,
     )
-    result = await service.edit_fact(request)
+    result = await service.edit_fact(firm_uuid, request)
 
     if result.error:
         raise HTTPException(status_code=400, detail=result.error)
@@ -251,7 +251,7 @@ async def list_contradictions(
     await _get_case(case_id, firm_uuid)
 
     service = get_evidence_service()
-    contradictions = await service.get_contradictions_for_case(case_id)
+    contradictions = await service.get_contradictions_for_case(firm_uuid, case_id)
 
     return {
         "case_id": str(case_id),
@@ -275,6 +275,7 @@ async def resolve_contradiction(
     try:
         service = get_fact_review_service()
         result = await service.resolve_contradiction(
+            firm_uuid,
             contradiction_id,
             body.resolution_status,
             uuid.UUID(ctx.user_id) if ctx.user_id else None,
@@ -304,7 +305,7 @@ async def list_missing_evidence(
     await _get_case(case_id, firm_uuid)
 
     service = get_evidence_service()
-    signals = await service.get_missing_evidence_for_case(case_id)
+    signals = await service.get_missing_evidence_for_case(firm_uuid, case_id)
 
     return {
         "case_id": str(case_id),
@@ -327,6 +328,7 @@ async def dismiss_missing_evidence(
     try:
         service = get_fact_review_service()
         result = await service.dismiss_missing_evidence(
+            firm_uuid,
             signal_id,
             uuid.UUID(ctx.user_id) if ctx.user_id else None,
             body.note,
@@ -373,7 +375,7 @@ async def rescan_evidence(
             })
 
     service = get_evidence_service()
-    result = await service.rescan_case(case_id, pages)
+    result = await service.rescan_case(firm_uuid, case_id, pages)
 
     await write_audit(
         actor_id=ctx.user_id, actor_type="ATTORNEY",

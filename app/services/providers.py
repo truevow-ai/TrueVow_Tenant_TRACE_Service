@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import uuid
 
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 from app.models.provider import Provider
 from app.services.nlp import create_openmed_service
@@ -29,6 +29,7 @@ def _confidence_from_npi(matches: list[dict]) -> str:
 
 async def extract_providers(
     case_id: uuid.UUID,
+    firm_id: uuid.UUID,
     provider_hints: list[str],
     jurisdiction_state: str | None = None,
     *,
@@ -57,7 +58,7 @@ async def extract_providers(
         return 0
 
     created = 0
-    async with async_session_maker() as session:
+    async with internal_tenant_session(tenant_id=firm_id) as session:
         for name in sorted(all_names):
             try:
                 matches = await npi.search(name, jurisdiction_state)

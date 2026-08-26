@@ -144,7 +144,7 @@ async def main():
             # Build chronology from OCR output
             redacted = [{'redacted_text': p.redacted_text, 'page_number': p.page_number} 
                         for p in ocr_result.pages if p.redacted_text]
-            chron = await build_chronology(CASE_ID, redacted)
+            chron = await build_chronology(CASE_ID, uuid.UUID(FIRM_ID), redacted)
             print(f"\n[5] Chronology: {chron.total_entries} entries")
             if chron.entries:
                 for e in chron.entries[:3]:
