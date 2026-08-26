@@ -37,7 +37,6 @@ MIGRATED_NOW_EMPTY = (
     "app/api/v1/routes/qa.py",
     "app/api/v1/routes/liens.py",
     "app/api/v1/routes/evidence.py",
-    "app/api/v1/routes/signing.py",
     "app/services/matter_activation.py",
     "app/core/audit.py",
 )

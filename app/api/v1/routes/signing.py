@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.auth.deps import AuthContext, get_current_context
 from app.core.audit import write_audit
-from app.core.database import internal_tenant_session
+from app.core.database import async_session_maker, internal_tenant_session
 from app.core.logging import get_logger
 from app.models.case import Case
 from app.models.signed_document import SignedDocument
