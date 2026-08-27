@@ -22,9 +22,6 @@ PENDING_BATCHES: dict[str, str] = {
     "app/api/v1/routes/client_portal.py": "TRACE-PORTAL-TRUST-001 grant-bound bootstrap",
     "app/api/v1/routes/webhooks.py": "T09 fail-close: Resend/Twilio/fax-status inbound trio",
     "app/services/inbound.py": "T09 fail-close: inbound email/fax processing",
-    "app/shared/consent_ledger.py": "T07B",
-    "app/shared/event_store.py": "T07B",
-    "app/shared/policy_registry.py": "T07B",
     "app/main.py": "GLOBAL_READ_ONLY / T11 readiness",
 }
 
@@ -34,6 +31,9 @@ MIGRATED_NOW_EMPTY = (
     "app/api/v1/routes/evidence.py",
     "app/services/matter_activation.py",
     "app/core/audit.py",
+    "app/shared/consent_ledger.py",
+    "app/shared/event_store.py",
+    "app/shared/policy_registry.py",
 )
 
 _PATTERN = "async_session_maker("

@@ -22,7 +22,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 
 logger = get_logger("trace.event_store")
@@ -77,7 +77,7 @@ class EventStore:
 
         self._validate_no_secrets(envelope.payload)
 
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=envelope.tenant_id) as session:
             from app.models.business_event import BusinessEvent
 
             existing = await session.get(BusinessEvent, envelope.event_id)
@@ -111,9 +111,11 @@ class EventStore:
         aggregate_type: str,
         aggregate_id: uuid.UUID,
         limit: int = 100,
+        *,
+        tenant_id: uuid.UUID,
     ) -> list[EventEnvelope]:
         """Get all events for a given aggregate."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.business_event import BusinessEvent
 
             result = await session.execute(
@@ -121,6 +123,7 @@ class EventStore:
                 .where(
                     BusinessEvent.aggregate_type == aggregate_type,
                     BusinessEvent.aggregate_id == aggregate_id,
+                    BusinessEvent.tenant_id == tenant_id,
                 )
                 .order_by(BusinessEvent.occurred_at)
                 .limit(limit)
@@ -148,12 +151,24 @@ class EventStore:
                 for r in records
             ]
 
-    async def get_event(self, event_id: uuid.UUID) -> EventEnvelope | None:
+    async def get_event(
+        self,
+        event_id: uuid.UUID,
+        *,
+        tenant_id: uuid.UUID,
+    ) -> EventEnvelope | None:
         """Get a single event by ID."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.business_event import BusinessEvent
 
-            r = await session.get(BusinessEvent, event_id)
+            r = (
+                await session.execute(
+                    select(BusinessEvent).where(
+                        BusinessEvent.event_id == event_id,
+                        BusinessEvent.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
             if r is None:
                 return None
             return EventEnvelope(

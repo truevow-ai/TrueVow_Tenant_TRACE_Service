@@ -24,7 +24,7 @@ from enum import Enum
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import async_session_maker
+from app.core.database import BlockedInternalTenantContext, internal_tenant_session
 from app.core.logging import get_logger
 
 logger = get_logger("trace.consent_ledger")
@@ -77,6 +77,15 @@ class ConsentLedger:
     is derived from the most recent event for each (person_id, consent_type)
     combination. Events are never modified or deleted.
     """
+
+    @staticmethod
+    def _require_tenant(tenant_id: uuid.UUID | None) -> uuid.UUID:
+        """Fail closed: tenant-owned consent operations require explicit tenant context."""
+        if tenant_id is None:
+            raise BlockedInternalTenantContext(
+                "consent ledger requires explicit tenant context"
+            )
+        return tenant_id
 
     async def record_consent_granted(
         self,
@@ -159,11 +168,12 @@ class ConsentLedger:
         metadata: dict | None = None,
     ) -> ConsentEvent:
         """Create an append-only consent event."""
-        async with async_session_maker() as session:
+        tenant = self._require_tenant(tenant_id)
+        async with internal_tenant_session(tenant_id=tenant) as session:
             from app.models.consent import ConsentRecord
 
             previous = await self._get_current_consent(
-                session, person_id, consent_type
+                session, person_id, consent_type, tenant
             )
 
             event = ConsentEvent(
@@ -208,18 +218,28 @@ class ConsentLedger:
         self,
         person_id: uuid.UUID,
         consent_type: ConsentType,
+        tenant_id: uuid.UUID | None = None,
     ) -> ConsentEvent | None:
         """Get the current consent status for a person and type."""
-        async with async_session_maker() as session:
-            return await self._get_current_consent(session, person_id, consent_type)
+        tenant = self._require_tenant(tenant_id)
+        async with internal_tenant_session(tenant_id=tenant) as session:
+            return await self._get_current_consent(
+                session, person_id, consent_type, tenant
+            )
 
     async def has_valid_consent(
         self,
         person_id: uuid.UUID,
         consent_type: ConsentType,
+        tenant_id: uuid.UUID | None = None,
     ) -> bool:
-        """Check if a person has valid GRANTED consent that hasn't expired."""
-        status = await self.get_consent_status(person_id, consent_type)
+        """Check if a person has valid GRANTED consent that hasn't expired.
+
+        Fail closed: requires explicit tenant context (see get_consent_status).
+        """
+        status = await self.get_consent_status(
+            person_id, consent_type, tenant_id=tenant_id
+        )
         if status is None:
             return False
         if status.state != ConsentState.GRANTED.value:
@@ -232,13 +252,18 @@ class ConsentLedger:
         self,
         person_id: uuid.UUID,
         consent_type: ConsentType | None = None,
+        tenant_id: uuid.UUID | None = None,
     ) -> list[ConsentEvent]:
         """Get the full consent history for a person, optionally filtered by type."""
-        async with async_session_maker() as session:
+        tenant = self._require_tenant(tenant_id)
+        async with internal_tenant_session(tenant_id=tenant) as session:
             from app.models.consent import ConsentRecord
             from sqlalchemy import select
 
-            query = select(ConsentRecord).where(ConsentRecord.person_id == person_id)
+            query = select(ConsentRecord).where(
+                ConsentRecord.person_id == person_id,
+                ConsentRecord.tenant_id == tenant,
+            )
             if consent_type:
                 query = query.where(ConsentRecord.consent_type == consent_type.value)
             query = query.order_by(ConsentRecord.granted_at)
@@ -272,6 +297,7 @@ class ConsentLedger:
         session: AsyncSession,
         person_id: uuid.UUID,
         consent_type: ConsentType,
+        tenant_id: uuid.UUID,
     ) -> ConsentEvent | None:
         """Get the most recent consent event for a person and type."""
         from app.models.consent import ConsentRecord
@@ -282,6 +308,7 @@ class ConsentLedger:
             .where(
                 ConsentRecord.person_id == person_id,
                 ConsentRecord.consent_type == consent_type.value,
+                ConsentRecord.tenant_id == tenant_id,
             )
             .order_by(desc(ConsentRecord.version))
             .limit(1)

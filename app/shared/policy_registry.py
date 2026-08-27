@@ -24,7 +24,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.core.database import async_session_maker
+from app.core.database import internal_tenant_session
 from app.core.logging import get_logger
 
 logger = get_logger("trace.policy_registry")
@@ -59,7 +59,7 @@ class PolicyRegistry:
         approved_by: uuid.UUID | None = None,
     ) -> PolicyReference:
         """Create and approve a new policy version."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.policy import PolicyRecord
 
             record = PolicyRecord(
@@ -89,17 +89,21 @@ class PolicyRegistry:
     async def update_policy(
         self,
         policy_id: uuid.UUID,
+        tenant_id: uuid.UUID,
         content: dict[str, Any] | None = None,
         description: str | None = None,
         approved_by: uuid.UUID | None = None,
     ) -> PolicyReference:
         """Create a new version of an existing policy, superseding the previous."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.policy import PolicyRecord
 
             existing = (
                 await session.execute(
-                    select(PolicyRecord).where(PolicyRecord.policy_id == policy_id)
+                    select(PolicyRecord).where(
+                        PolicyRecord.policy_id == policy_id,
+                        PolicyRecord.tenant_id == tenant_id,
+                    )
                 )
             ).scalar_one_or_none()
 
@@ -139,7 +143,7 @@ class PolicyRegistry:
         category: str | None = None,
     ) -> PolicyReference | None:
         """Get the latest active policy for a tenant, optionally filtered by category."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.policy import PolicyRecord
 
             query = select(PolicyRecord).where(
@@ -158,14 +162,18 @@ class PolicyRegistry:
     async def get_policy_by_id(
         self,
         policy_id: uuid.UUID,
+        tenant_id: uuid.UUID,
     ) -> PolicyReference | None:
         """Get a specific policy version by ID."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.policy import PolicyRecord
 
             result = (
                 await session.execute(
-                    select(PolicyRecord).where(PolicyRecord.policy_id == policy_id)
+                    select(PolicyRecord).where(
+                        PolicyRecord.policy_id == policy_id,
+                        PolicyRecord.tenant_id == tenant_id,
+                    )
                 )
             ).scalar_one_or_none()
 
@@ -179,7 +187,7 @@ class PolicyRegistry:
         category: str | None = None,
     ) -> list[PolicyReference]:
         """List all active policies for a tenant."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.policy import PolicyRecord
 
             query = select(PolicyRecord).where(PolicyRecord.tenant_id == tenant_id)
@@ -193,14 +201,18 @@ class PolicyRegistry:
     async def get_policy_content(
         self,
         policy_id: uuid.UUID,
+        tenant_id: uuid.UUID,
     ) -> dict[str, Any] | None:
         """Get the full content of a specific policy version."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.policy import PolicyRecord
 
             result = (
                 await session.execute(
-                    select(PolicyRecord).where(PolicyRecord.policy_id == policy_id)
+                    select(PolicyRecord).where(
+                        PolicyRecord.policy_id == policy_id,
+                        PolicyRecord.tenant_id == tenant_id,
+                    )
                 )
             ).scalar_one_or_none()
 
@@ -212,7 +224,7 @@ class PolicyRegistry:
         jurisdiction: str,
     ) -> PolicyReference | None:
         """Get the active jurisdiction profile for a tenant and jurisdiction."""
-        async with async_session_maker() as session:
+        async with internal_tenant_session(tenant_id=tenant_id) as session:
             from app.models.policy import PolicyRecord
 
             result = (
