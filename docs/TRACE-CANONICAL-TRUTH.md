@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Version** | 1.3 |
-| **Date** | 2026-08-23 |
+| **Version** | 1.4 |
+| **Date** | 2026-08-30 |
 | **Authority** | This document controls on any conflict with any other file in this repository, including `AGENTS.md`, archived planning documents, and historical ADRs. |
-| **Basis** | Reconciliation of the as-built system (branch `trace/TRACE-FND-003` @ `cc36a8d`), the shared memory vault (689 entries through 2026-08-21), and three rounds of owner rulings (2026-08-23). |
-| **Companion docs** | `../CONTEXT.md` (glossary) · `docs/TRACE-Agent-Coding-Instructions.md` (conduct rules) · `docs/adr/` (historical decision records) · `docs/archive/` (superseded planning corpus) |
+| **Basis** | Reconciliation of the as-built system (branch `trace/TRACE-FND-003` @ `cc36a8d`), the shared memory vault (689 entries through 2026-08-21), owner rulings through 2026-08-30, and architecture addendum `TRACE-ARCH-ADD-001`. |
+| **Companion docs** | `../CONTEXT.md` (glossary) · `docs/TRACE-Agent-Coding-Instructions.md` (conduct rules) · `docs/TRACE-ARCHITECTURE-ADDENDUM-001-DAMAGES-SETTLE.md` (damages development + SETTLE handoff target) · `docs/adr/` (historical decision records) · `docs/archive/` (superseded planning corpus) |
 
 ---
 
@@ -21,7 +21,7 @@
 
 **Canonical name:** `TRACE — Pre-Litigation Matter Development & Readiness`.
 
-TRACE is TrueVow's deterministic pre-litigation operating and readiness layer. It takes an activated Matter and develops it — representation, conflict clearance, engagement execution, activation, treatment records, evidence, chronology, readiness — until an attorney can judge it demand-ready and export it for settlement.
+TRACE is TrueVow's deterministic pre-litigation operating and readiness layer. It takes an activated Matter and develops it — representation, conflict clearance, engagement execution, activation, treatment records, evidence, chronology, readiness — until an attorney can judge it demand-ready and prepare it for settlement-context review.
 
 | Name | Status |
 |---|---|
@@ -29,7 +29,7 @@ TRACE is TrueVow's deterministic pre-litigation operating and readiness layer. I
 | "Client Engagement and Case Readiness" | **SUPERSEDED** — intermediate descriptor (commit `3339798`) |
 | "TRACE — Pre-Litigation Matter Development & Readiness" | **CANONICAL** |
 
-**Boundary:** TRACE ends at demand-ready export. Settlement economics belong to SETTLE; capture belongs to INTAKE; measurement belongs to COMMAND. TRACE holds no opinion outside the pre-litigation development window.
+**Boundary:** TRACE develops and protects the Matter. It may prepare structured, source-linked damages-development inputs and an attorney-approved, de-identified SETTLE handoff packet, but it does **not** calculate case value, settlement ranges, demand recommendations, negotiation strategy, or accept/reject advice. Settlement economics and resolution support belong to SETTLE; capture belongs to INTAKE; measurement belongs to COMMAND. See `TRACE-ARCH-ADD-001` for the decided-but-unbuilt damages/handoff target.
 
 ## 2. Ecosystem position and contracts
 
@@ -42,7 +42,8 @@ The case-processing path is principally `INTAKE → TRACE → SETTLE`; COMMAND m
 | Contract | Status |
 |---|---|
 | `matter.activated` consumption (signed webhook, per-link key `tv-saas-admin-to-trace-v1`, WebhookSignature v1.0, 300s tolerance + `event_id` replay guard) | **BUILT-TESTED** (17 golden fixture tests) |
-| TRACE → SETTLE handoff | Demand-ready export is the boundary artifact; deeper integration **NOT PRESENT** |
+| TRACE → SETTLE current handoff | Demand-ready export is the current boundary artifact | **BUILT-TESTED / SHALLOW INTEGRATION** |
+| TRACE damages-development + governed SETTLE handoff | Source-linked readiness snapshot + attorney-approved, de-identified, schema-versioned handoff packet | **DECIDED-BUT-UNBUILT** — `TRACE-ARCH-ADD-001`; build after Gate 003 |
 | TRACE → COMMAND contract | **NOT DEFINED / NOT BUILT.** Do not invent one. |
 | Legacy bearer-token cutoff | 2026-09-01 (recorded contract normalization) |
 
@@ -158,7 +159,7 @@ Priorities: `PRIORITY | ADVISORY | INFORMATIONAL` (NOT NULL + CHECK, migration 0
 
 *Rule: historical flag concepts may inform future enhancements, but their old identifiers are not backlog requirements unless explicitly re-approved. Never "fix" the live enum to match an old ADR.*
 
-**Readiness:** current `GET /cases/{id}/readiness` returns a slim summary (stage, HIPAA status, provider/lien counts, export readiness) — **PARTIAL**. The full capability is §10 roadmap.
+**Readiness:** current `GET /cases/{id}/readiness` returns a slim summary (stage, HIPAA status, provider/lien counts, export readiness) — **PARTIAL**. The full capability is §10 roadmap and `TRACE-ARCH-ADD-001`.
 
 ## 7. Status label legend
 
@@ -204,18 +205,18 @@ Required: commissioned secret + fail-closed verification.
 |---|---|---|
 | 1 | Commission non-bypass Supabase runtime role (`rolbypassrls=false`) to close the FND-003 RLS gate | Vault 2026-08-21; AGENTS.md HIGH; guarded suite 163/163 already green |
 | 2 | Close GAP-1/GAP-2 inbound webhook auth (fail-closed + commissioned secrets) | §8, code lines cited |
-| 3 | Matter Readiness Board — attorney-facing operational view of complete/waiting/missing/contradictory evidence and next-milestone readiness. **Status: DECIDED-BUT-UNBUILT.** ADR-004's five-column × four-status layout is a **SUPERSEDED DESIGN REFERENCE**, not a binding UI contract | Current `/readiness` is PARTIAL (§6) |
-| 4 | DocuSeal commissioning (self-hosted deployment or approved subscription) to make the signing path live | `signing.py` BUILT-STALE |
-| 5 | Resolve canonical identity contract: Clerk org ↔ TrueVow tenant UUID mapping (platform-level) | §4 |
-| 6 | First-class `matter_id` storage on cases; fix projection naming conflation | §4, §9 |
-| 7 | *(removed — Gate-002 closure recorded 2026-08-23; FND-002 reclassified BUILT_PROVEN)* | Owner ruling 2026-08-23 |
-| 8 | Recommission staging/production Fly deployment (prerequisite for any `PRODUCTION-PROVEN` label) | §5 deployment row |
+| 3 | Matter Readiness Board — attorney-facing operational view of complete/waiting/missing/contradictory evidence and next-milestone readiness. **Status: DECIDED-BUT-UNBUILT.** ADR-004's five-column × four-status layout is a **SUPERSEDED DESIGN REFERENCE**, not a binding UI contract | Current `/readiness` is PARTIAL (§6); should be designed together with `TRACE-ARCH-ADD-001` rather than as a competing readiness model |
+| 4 | Damages Development Record + Damages Readiness + governed TRACE→SETTLE handoff packet | **DECIDED-BUT-UNBUILT / Class D** — `TRACE-ARCH-ADD-001`; implementation intentionally starts after Gate 003 |
+| 5 | DocuSeal commissioning (self-hosted deployment or approved subscription) to make the signing path live | `signing.py` BUILT-STALE |
+| 6 | Resolve canonical identity contract: Clerk org ↔ TrueVow tenant UUID mapping (platform-level) | §4 |
+| 7 | First-class `matter_id` storage on cases; fix projection naming conflation | §4, §9 |
+| 8 | *(removed — Gate-002 closure recorded 2026-08-23; FND-002 reclassified BUILT_PROVEN)* | Owner ruling 2026-08-23 |
+| 9 | Recommission staging/production Fly deployment (prerequisite for any `PRODUCTION-PROVEN` label) | §5 deployment row |
 
 ### IDEA / TBD (no commitment; requires explicit product decision)
 
 - Historical flag concepts (e.g., medication-escalation detection) as *new* capabilities under the v1 registry — requires re-approval, never a rename of existing enum values.
 - ModernBERT long-context NLP evaluation (`NLP_LONG_CONTEXT_BACKEND`) — ADR-003/004 evaluation never executed.
-- Deeper SETTLE integration beyond demand-ready export.
 - Any TRACE → COMMAND contract.
 
 ## 11. Maintenance protocol (mandatory)
@@ -299,6 +300,7 @@ Then, for every class that produces code: implement → code-review → independ
 | 1.1 | 2026-08-23 | Operating model ratified: architecture frozen as default; Pocock skill chain + TrueVow gates become mandatory change machinery; CHANGE MANAGEMENT + anti-drift three-input rule added (§11) | Owner ruling 2026-08-23 |
 | 1.2 | 2026-08-23 | Lifecycle adoption ruled PROSPECTIVE: completed work grandfathered; proportionality for small fixes; skills subordinate to canonical truth; four-eyes verification retained (§11) | Owner ruling 2026-08-23 |
 | 1.3 | 2026-08-23 | Maturity-first entry protocol added; TRACE Completion/Maturity Ledger v1.0 published (`docs/TRACE-MATURITY-LEDGER.md`); FND-003-R1 classified C (wide/security-sensitive), proceeds at IMPLEMENT stage | Owner ruling 2026-08-23; Sales Ops control-plane learning |
+| 1.4 | 2026-08-30 | Ratified `TRACE-ARCH-ADD-001`: TRACE damages-development/readiness + attorney-approved de-identified SETTLE handoff is a Class-D target after Gate 003; TRACE/SETTLE valuation boundary remains strict | Owner ruling 2026-08-30; `TRACE-ARCH-ADD-001` |
 
 ### Adoption semantics of the Pocock lifecycle (ratified 2026-08-23)
 
@@ -336,4 +338,4 @@ Then, for every class that produces code: implement → code-review → independ
 - Branch `trace/TRACE-FND-003` @ `cc36a8d` (FND-001 → FND-003 commit series on `main`/branches)
 - Shared memory vault: `../TrueVow_Shared_Codebase_Memory/memory.db` (689 entries; digest `../TrueVow_Context/memory-digest.md`)
 - `../ORCHESTRATOR_PROGRESS.md` (RC v3 pilot, 2026-08-01)
-- Owner rulings: grill Rounds 1–3 + operating-model ratification, 2026-08-23 (this document's controlling authority)
+- Owner rulings: grill Rounds 1–3 + operating-model ratification, 2026-08-23; damages-development / SETTLE handoff addendum ruling, 2026-08-30.
