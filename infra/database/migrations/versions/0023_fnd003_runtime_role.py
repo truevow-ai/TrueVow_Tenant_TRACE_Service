@@ -77,15 +77,21 @@ _GLOBAL_REFERENCE = ("jurisdiction_profiles",)
 
 def upgrade() -> None:
     # 1. Role existence + attribute normalization (idempotent).
+    #
+    # Deliberately a single CREATE statement: the attribute set is written
+    # inline so CREATE itself normalizes it. A follow-up ALTER ROLE is NOT
+    # used here — on this host the migration login holds CREATEROLE but not
+    # SUPERUSER, and Postgres refuses ALTER ROLE on any role that carries
+    # SUPERUSER (or that the non-superuser caller cannot alter). CREATE with
+    # the attributes inline is the only portable path and yields exactly the
+    # contracted privileges: NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE
+    # NOINHERIT LOGIN.
     op.execute(
         f"DO $$ BEGIN "
         f"IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{_ROLE}') THEN "
-        f"CREATE ROLE {_ROLE} LOGIN; "
+        f"CREATE ROLE {_ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS "
+        f"NOCREATEDB NOCREATEROLE NOINHERIT; "
         f"END IF; END $$;"
-    )
-    op.execute(
-        f"ALTER ROLE {_ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS "
-        f"NOCREATEDB NOCREATEROLE NOINHERIT;"
     )
 
     # 2. Schema usage only — no CREATE.
